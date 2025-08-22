@@ -6,9 +6,9 @@ import 'package:intl/intl.dart';
 import '../../models/user_model.dart';
 import '../../models/workout_schedule_model.dart';
 import '../../models/workout_template_model.dart';
-import '../../models/diet_plan_model.dart'; // Importar o novo modelo
+import '../../models/diet_plan_model.dart';
 import '../daily_workout_screen.dart';
-import '../diet_plan_screen.dart'; // Importar a nova tela
+import '../diet_plan_screen.dart';
 
 class StudentDashboard extends StatefulWidget {
   final UserModel user;
@@ -30,7 +30,6 @@ class _StudentDashboardState extends State<StudentDashboard> {
   }
 
   Future<WorkoutTemplateModel?> _fetchTodaysWorkout() async {
-    // ... (código existente, sem alterações)
     try {
       final scheduleSnapshot = await FirebaseFirestore.instance
           .collection('workoutSchedules')
@@ -60,7 +59,7 @@ class _StudentDashboardState extends State<StudentDashboard> {
     }
   }
 
-  // NOVA FUNÇÃO para buscar o plano alimentar
+  // FUNÇÃO para buscar o plano alimentar
   Future<DietPlanModel?> _fetchDietPlan() async {
     try {
       final planSnapshot = await FirebaseFirestore.instance
@@ -95,13 +94,12 @@ class _StudentDashboardState extends State<StudentDashboard> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Card do Treino de Hoje (sem alterações)
+            // Card do Treino de Hoje
             const Text("Treino de Hoje", style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             FutureBuilder<WorkoutTemplateModel?>(
               future: _todaysWorkoutFuture,
               builder: (context, snapshot) {
-                // ... (código existente, sem alterações)
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
                 }
@@ -122,7 +120,7 @@ class _StudentDashboardState extends State<StudentDashboard> {
             ),
             const SizedBox(height: 24),
 
-            // NOVO CARD: Plano Alimentar
+            // CARD de Plano Alimentar
             const Text("Plano Alimentar", style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             FutureBuilder<DietPlanModel?>(
@@ -148,7 +146,7 @@ class _StudentDashboardState extends State<StudentDashboard> {
             ),
             const SizedBox(height: 24),
             
-            // Card do Código de Convite (sem alterações)
+            // Card do Código de Convite
             const Text("O seu Código de Convite", style: TextStyle(fontSize: 16)),
             const SizedBox(height: 8),
             Card(

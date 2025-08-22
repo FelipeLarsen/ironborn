@@ -21,7 +21,7 @@ class UserModel {
     };
   }
 
-  // NOVO: Converte um Map (do Firestore) para um objeto UserModel
+  // Converte um Map (do Firestore) para um objeto UserModel
   factory UserModel.fromMap(Map<String, dynamic> map) {
     return UserModel(
       uid: map['uid'] ?? '',

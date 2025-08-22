@@ -1,5 +1,3 @@
-// ARQUIVO: lib/models/workout_template_model.dart
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 // Modelo para representar um exercício dentro de um template
