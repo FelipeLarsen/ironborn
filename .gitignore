@@ -1,4 +1,7 @@
 lib/firebase_options.dart
+pubspec.lock
+firebase.json
+.firebaserc
 
 # Miscellaneous
 *.class
