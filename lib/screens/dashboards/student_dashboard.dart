@@ -10,6 +10,7 @@ import '../../models/workout_schedule_model.dart';
 import '../../models/workout_template_model.dart';
 import '../daily_workout_screen.dart';
 import '../diet_plan_screen.dart';
+import '../profile_screen.dart';
 
 class StudentDashboard extends StatefulWidget {
   final UserModel user;
@@ -130,6 +131,15 @@ class _StudentDashboardState extends State<StudentDashboard> {
       appBar: AppBar(
         title: Text('Olá, ${widget.user.name}!'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.person),
+            onPressed: () {
+              Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => ProfileScreen(user: widget.user)),
+            );
+          },
+          ),
           IconButton(
             icon: const Icon(Icons.logout),
             onPressed: () => FirebaseAuth.instance.signOut(),

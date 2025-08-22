@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../student_management_screen.dart';
 import '../workout_templates_screen.dart';
 import '../../models/user_model.dart';
+import '../profile_screen.dart';
 
 class TrainerDashboard extends StatefulWidget {
   final UserModel user;
@@ -94,16 +95,24 @@ class _TrainerDashboardState extends State<TrainerDashboard> {
           children: [
             ElevatedButton.icon(
               icon: const Icon(Icons.person_add, color: Colors.white),
-              label: const Text('Convidar Aluno', style: TextStyle(color: Colors.white)),
+              label: const Text(
+                'Convidar Aluno',
+                style: TextStyle(color: Colors.white),
+              ),
               onPressed: _showInviteDialog, // Chama o diálogo
               style: ElevatedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 backgroundColor: Colors.deepOrange,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
             ),
             const SizedBox(height: 24),
-            const Text('Meus Alunos', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+            const Text(
+              'Meus Alunos',
+              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+            ),
             const SizedBox(height: 16),
             Expanded(
               // StreamBuilder para ouvir as atualizações da lista de alunos em tempo real
@@ -126,9 +135,12 @@ class _TrainerDashboardState extends State<TrainerDashboard> {
                     itemCount: studentDocs.length,
                     itemBuilder: (context, index) {
                       final student = UserModel.fromMap(
-                          studentDocs[index].data() as Map<String, dynamic>);
+                        studentDocs[index].data() as Map<String, dynamic>,
+                      );
                       return Card(
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                         child: ListTile(
                           leading: CircleAvatar(child: Text(student.name[0])),
                           title: Text(student.name),
@@ -137,7 +149,8 @@ class _TrainerDashboardState extends State<TrainerDashboard> {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (context) => StudentManagementScreen(student: student),
+                                builder: (context) =>
+                                    StudentManagementScreen(student: student),
                               ),
                             );
                           },
@@ -154,19 +167,30 @@ class _TrainerDashboardState extends State<TrainerDashboard> {
       bottomNavigationBar: BottomNavigationBar(
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.people), label: 'Alunos'),
-          BottomNavigationBarItem(icon: Icon(Icons.fitness_center), label: 'Modelos'),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.fitness_center),
+            label: 'Modelos',
+          ),
           BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Perfil'),
         ],
-        currentIndex: 0,
+        currentIndex:
+            0, // Pode manter 0 ou gerir o estado para refletir a tela atual
         onTap: (index) {
           if (index == 1) {
             Navigator.push(
               context,
-              MaterialPageRoute(builder: (context) => WorkoutTemplatesScreen()),
+              MaterialPageRoute(
+                builder: (context) => const WorkoutTemplatesScreen(),
+              ),
             );
           } else if (index == 2) {
-            // Navegar para a tela de perfil do treinador
-            Navigator.pushNamed(context, '/trainerProfile');
+            // Se o item 'Perfil' for clicado
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => ProfileScreen(user: widget.user),
+              ),
+            );
           }
         },
       ),

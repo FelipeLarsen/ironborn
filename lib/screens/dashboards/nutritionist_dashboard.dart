@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../../models/user_model.dart';
 import '../patient_management_screen.dart';
+import '../profile_screen.dart';
 
 class NutritionistDashboard extends StatefulWidget {
   final UserModel user;
@@ -84,6 +85,17 @@ class _NutritionistDashboardState extends State<NutritionistDashboard> {
         title: Text('Olá, Nutri ${widget.user.name}!'),
         actions: [
           IconButton(
+            icon: const Icon(Icons.person),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => ProfileScreen(user: widget.user),
+                ),
+              );
+            },
+          ),
+          IconButton(
             icon: const Icon(Icons.logout),
             onPressed: () => FirebaseAuth.instance.signOut(),
           ),
@@ -96,16 +108,24 @@ class _NutritionistDashboardState extends State<NutritionistDashboard> {
           children: [
             ElevatedButton.icon(
               icon: const Icon(Icons.person_add, color: Colors.white),
-              label: const Text('Convidar Paciente', style: TextStyle(color: Colors.white)),
+              label: const Text(
+                'Convidar Paciente',
+                style: TextStyle(color: Colors.white),
+              ),
               onPressed: _showInviteDialog,
               style: ElevatedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 backgroundColor: Colors.deepOrange,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
             ),
             const SizedBox(height: 24),
-            const Text('Meus Pacientes', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+            const Text(
+              'Meus Pacientes',
+              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+            ),
             const SizedBox(height: 16),
             Expanded(
               child: StreamBuilder<QuerySnapshot>(
@@ -118,7 +138,9 @@ class _NutritionistDashboardState extends State<NutritionistDashboard> {
                     return const Center(child: CircularProgressIndicator());
                   }
                   if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                    return const Center(child: Text('Ainda não tem pacientes.'));
+                    return const Center(
+                      child: Text('Ainda não tem pacientes.'),
+                    );
                   }
 
                   final patientDocs = snapshot.data!.docs;
@@ -127,9 +149,12 @@ class _NutritionistDashboardState extends State<NutritionistDashboard> {
                     itemCount: patientDocs.length,
                     itemBuilder: (context, index) {
                       final patient = UserModel.fromMap(
-                          patientDocs[index].data() as Map<String, dynamic>);
+                        patientDocs[index].data() as Map<String, dynamic>,
+                      );
                       return Card(
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                         child: ListTile(
                           leading: CircleAvatar(child: Text(patient.name[0])),
                           title: Text(patient.name),
@@ -138,7 +163,8 @@ class _NutritionistDashboardState extends State<NutritionistDashboard> {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (context) => PatientManagementScreen(patient: patient),
+                                builder: (context) =>
+                                    PatientManagementScreen(patient: patient),
                               ),
                             );
                           },

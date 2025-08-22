@@ -31,6 +31,17 @@ class _PatientManagementScreenState extends State<PatientManagementScreen> {
     _fetchDietPlan();
   }
 
+  @override
+  void dispose() {
+    // Limpar todos os controllers para evitar memory leaks
+    _planNameController.dispose();
+    _caloriesController.dispose();
+    _proteinController.dispose();
+    _carbsController.dispose();
+    _fatController.dispose();
+    super.dispose();
+  }
+
   Future<void> _fetchDietPlan() async {
     final planSnapshot = await FirebaseFirestore.instance
         .collection('dietPlans')
@@ -77,10 +88,12 @@ class _PatientManagementScreenState extends State<PatientManagementScreen> {
       } else {
         await collection.doc(newPlan.id).update(newPlan.toMap());
       }
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Plano salvo com sucesso!'), backgroundColor: Colors.green),
       );
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erro: $e')));
     } finally {
       if(mounted) setState(() => _isLoading = false);
@@ -90,6 +103,24 @@ class _PatientManagementScreenState extends State<PatientManagementScreen> {
   void _addMeal() {
     setState(() {
       _meals.add(Meal(name: '', time: '', foods: []));
+    });
+  }
+
+  void _removeMeal(int mealIndex) {
+    setState(() {
+      _meals.removeAt(mealIndex);
+    });
+  }
+
+  void _addFoodToMeal(int mealIndex) {
+    setState(() {
+      _meals[mealIndex].foods.add(FoodItem(description: '', quantity: ''));
+    });
+  }
+
+  void _removeFoodFromMeal(int mealIndex, int foodIndex) {
+    setState(() {
+      _meals[mealIndex].foods.removeAt(foodIndex);
     });
   }
 
@@ -110,7 +141,7 @@ class _PatientManagementScreenState extends State<PatientManagementScreen> {
               child: ListView(
                 padding: const EdgeInsets.all(16.0),
                 children: [
-                  TextFormField(controller: _planNameController, decoration: const InputDecoration(labelText: 'Nome do Plano')),
+                  TextFormField(controller: _planNameController, decoration: const InputDecoration(labelText: 'Nome do Plano'), validator: (v) => v!.isEmpty ? 'Campo obrigatório' : null),
                   const SizedBox(height: 16),
                   const Text('Metas Diárias', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                   TextFormField(controller: _caloriesController, decoration: const InputDecoration(labelText: 'Calorias (kcal)'), keyboardType: TextInputType.number),
@@ -133,22 +164,82 @@ class _PatientManagementScreenState extends State<PatientManagementScreen> {
   }
 
   Widget _buildMealCard(int mealIndex) {
-    // Implementação do card de refeição dinâmico (simplificado para o exemplo)
+    final meal = _meals[mealIndex];
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 8),
       child: Padding(
-        padding: const EdgeInsets.all(8.0),
+        padding: const EdgeInsets.all(12.0),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            TextFormField(
-              initialValue: _meals[mealIndex].name,
-              onChanged: (value) => _meals[mealIndex].name = value,
-              decoration: const InputDecoration(labelText: 'Nome da Refeição (ex: Almoço)'),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: TextFormField(
+                    initialValue: meal.name,
+                    onChanged: (value) => meal.name = value,
+                    decoration: const InputDecoration(labelText: 'Nome da Refeição'),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: TextFormField(
+                    initialValue: meal.time,
+                    onChanged: (value) => meal.time = value,
+                    decoration: const InputDecoration(labelText: 'Horário (ex: 09:00)'),
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+                  onPressed: () => _removeMeal(mealIndex),
+                ),
+              ],
             ),
-            // Adicionar lógica para alimentos aqui...
+            const SizedBox(height: 16),
+            const Text('Alimentos', style: TextStyle(fontWeight: FontWeight.bold)),
+            ...meal.foods.asMap().entries.map((entry) => _buildFoodItemTile(mealIndex, entry.key)),
+            const SizedBox(height: 8),
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton.icon(
+                icon: const Icon(Icons.add, size: 18),
+                label: const Text('Adicionar Alimento'),
+                onPressed: () => _addFoodToMeal(mealIndex),
+              ),
+            ),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildFoodItemTile(int mealIndex, int foodIndex) {
+    final food = _meals[mealIndex].foods[foodIndex];
+    return Row(
+      children: [
+        Expanded(
+          flex: 3,
+          child: TextFormField(
+            initialValue: food.description,
+            onChanged: (value) => food.description = value,
+            decoration: const InputDecoration(labelText: 'Alimento'),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          flex: 2,
+          child: TextFormField(
+            initialValue: food.quantity,
+            onChanged: (value) => food.quantity = value,
+            decoration: const InputDecoration(labelText: 'Quantidade'),
+          ),
+        ),
+        IconButton(
+          icon: const Icon(Icons.remove_circle_outline, size: 20),
+          onPressed: () => _removeFoodFromMeal(mealIndex, foodIndex),
+        ),
+      ],
     );
   }
 }
