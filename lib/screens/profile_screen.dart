@@ -2,6 +2,7 @@
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:ironborn/screens/settings_screen.dart'; // NOVO: Importar o ecrã de definições.
 import '../models/user_model.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -14,14 +15,12 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   late final TextEditingController _nameController;
-  // NOVO: estado para o nome local, para refletir mudanças sem pop/push.
   late String _currentName;
   bool _isLoading = false;
 
   @override
   void initState() {
     super.initState();
-    // NOVO: Inicializa o estado local e o controller.
     _currentName = widget.user.name;
     _nameController = TextEditingController(text: _currentName);
   }
@@ -41,7 +40,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
       return;
     }
 
-    // Se o nome não mudou, não faz nada.
     if (newName == _currentName) {
       return;
     }
@@ -51,12 +49,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
     try {
       await FirebaseFirestore.instance
           .collection('users')
-          .doc(widget.user.id) // ALTERADO: de uid para id.
+          .doc(widget.user.id)
           .update({'name': newName});
 
       if (!mounted) return;
-      
-      // NOVO: Atualiza o estado local para refletir a mudança imediatamente.
+
       setState(() {
         _currentName = newName;
       });
@@ -68,7 +65,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
       );
     } catch (e) {
       if (!mounted) return;
-      // Reverte o controller para o nome antigo em caso de erro.
       _nameController.text = _currentName;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Erro ao atualizar o perfil: $e')),
@@ -82,7 +78,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Meu Perfil'),
+        title: const Text('O meu Perfil'),
+        // NOVO: Adiciona um botão de definições na AppBar.
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.settings),
+            tooltip: 'Definições da Conta',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const SettingsScreen()),
+              );
+            },
+          ),
+        ],
       ),
       body: ListView(
         padding: const EdgeInsets.all(16.0),
@@ -103,7 +112,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ListTile(
             leading: const Icon(Icons.badge),
             title: const Text('Tipo de Perfil'),
-            // ALTERADO: Usa .name do enum e capitaliza a primeira letra.
             subtitle: Text(widget.user.userType.name[0].toUpperCase() +
                 widget.user.userType.name.substring(1)),
           ),

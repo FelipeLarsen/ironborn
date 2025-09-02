@@ -3,6 +3,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart'; // Import necessário para formatar a data
 import 'package:ironborn/models/message_model.dart';
 import 'package:ironborn/widgets/responsive_layout.dart';
 
@@ -50,10 +51,8 @@ class _ChatScreenState extends State<ChatScreen> {
         .collection('conversations')
         .doc(widget.conversationId);
 
-    // Adiciona a nova mensagem na sub-coleção
     await conversationRef.collection('messages').add(message);
 
-    // Atualiza a conversa principal com a última mensagem para a lista de chats
     await conversationRef.update({
       'lastMessage': text,
       'lastMessageTimestamp': FieldValue.serverTimestamp(),
@@ -90,7 +89,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
                 return ListView.builder(
                   controller: _scrollController,
-                  reverse: true, // Começa a lista de baixo para cima
+                  reverse: true,
                   padding: const EdgeInsets.all(16.0),
                   itemCount: messages.length,
                   itemBuilder: (context, index) {
@@ -149,35 +148,48 @@ class _MessageBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
+    // ALTERADO: A bolha agora é uma Coluna para conter o texto e o timestamp.
+    return Column(
+      crossAxisAlignment:
+          isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
       children: [
-        // ALTERADO: Adicionado Flexible para corrigir o overflow de texto.
-        Flexible(
-          child: Container(
-            constraints: BoxConstraints(
-              maxWidth: MediaQuery.of(context).size.width * 0.75,
+        Row(
+          mainAxisAlignment:
+              isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
+          children: [
+            Flexible(
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 16.0, vertical: 10.0),
+                margin: const EdgeInsets.symmetric(vertical: 4.0),
+                decoration: BoxDecoration(
+                  color: isMe ? Colors.deepOrange : Colors.grey.shade700,
+                  borderRadius: isMe
+                      ? const BorderRadius.only(
+                          topLeft: Radius.circular(15.0),
+                          bottomLeft: Radius.circular(15.0),
+                          topRight: Radius.circular(15.0),
+                        )
+                      : const BorderRadius.only(
+                          topRight: Radius.circular(15.0),
+                          bottomRight: Radius.circular(15.0),
+                          topLeft: Radius.circular(15.0),
+                        ),
+                ),
+                child: Text(
+                  message.text,
+                  style: const TextStyle(color: Colors.white, fontSize: 16),
+                ),
+              ),
             ),
-            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 10.0),
-            margin: const EdgeInsets.symmetric(vertical: 4.0),
-            decoration: BoxDecoration(
-              color: isMe ? Colors.deepOrange : Colors.grey.shade700,
-              borderRadius: isMe
-                  ? const BorderRadius.only(
-                      topLeft: Radius.circular(15.0),
-                      bottomLeft: Radius.circular(15.0),
-                      topRight: Radius.circular(15.0),
-                    )
-                  : const BorderRadius.only(
-                      topRight: Radius.circular(15.0),
-                      bottomRight: Radius.circular(15.0),
-                      topLeft: Radius.circular(15.0),
-                    ),
-            ),
-            child: Text(
-              message.text,
-              style: const TextStyle(color: Colors.white, fontSize: 16),
-            ),
+          ],
+        ),
+        // NOVO: Widget de texto para o timestamp.
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12.0),
+          child: Text(
+            DateFormat('HH:mm').format(message.timestamp.toDate()),
+            style: const TextStyle(fontSize: 12, color: Colors.grey),
           ),
         ),
       ],
