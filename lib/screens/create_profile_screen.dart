@@ -1,7 +1,9 @@
+// ARQUIVO ATUALIZADO: lib/screens/create_profile_screen.dart
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import '../models/user_model.dart';
+import 'package:ironborn/models/user_model.dart'; // Import necessário para o Enum
 
 class CreateProfileScreen extends StatefulWidget {
   const CreateProfileScreen({super.key});
@@ -11,115 +13,106 @@ class CreateProfileScreen extends StatefulWidget {
 }
 
 class _CreateProfileScreenState extends State<CreateProfileScreen> {
-  final _nameController = TextEditingController();
-  String? _userType = 'aluno'; // Valor padrão
+  // ALTERADO: de String? para UserType? para segurança de tipo.
+  UserType? _selectedUserType;
   bool _isLoading = false;
 
   Future<void> _saveProfile() async {
-    if (_nameController.text.trim().isEmpty) {
+    if (_selectedUserType == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Por favor, insira o seu nome.')),
+        const SnackBar(
+          content: Text("Por favor, selecione um tipo de perfil."),
+          backgroundColor: Colors.redAccent,
+        ),
       );
       return;
     }
+    if (!mounted) return;
+    setState(() => _isLoading = true);
 
-    setState(() {
-      _isLoading = true;
-    });
-
+    final user = FirebaseAuth.instance.currentUser!;
     try {
-      final user = FirebaseAuth.instance.currentUser;
-      if (user == null) return;
-
-      final userProfile = UserModel(
-        uid: user.uid,
-        email: user.email!,
-        name: _nameController.text.trim(),
-        userType: _userType!,
-      );
-
-      // Salva o perfil do utilizador na coleção 'users' do Firestore
-      await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .set(userProfile.toMap());
-
-      // A navegação será tratada pelo AuthGate após o perfil ser criado
+      await FirebaseFirestore.instance.collection('users').doc(user.uid).set(
+            // ALTERADO: Usa o .name do enum para salvar a string correta.
+            {'userType': _selectedUserType!.name},
+            SetOptions(merge: true),
+          );
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erro ao salvar o perfil: $e')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Erro ao salvar perfil: $e"),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
     } finally {
       if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
+        setState(() => _isLoading = false);
       }
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final user = FirebaseAuth.instance.currentUser!;
+
     return Scaffold(
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 480),
+          child: Padding(
             padding: const EdgeInsets.all(24.0),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const Text(
-                  'Complete o seu Perfil',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 32),
-                TextField(
-                  controller: _nameController,
-                  decoration: InputDecoration(
-                    labelText: 'O seu nome completo',
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    'Olá, ${user.displayName ?? 'Usuário'}!', // ALTERADO: Usa displayName do Auth para simplicidade.
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.headlineMedium,
                   ),
-                ),
-                const SizedBox(height: 24),
-                const Text('Eu sou um:', style: TextStyle(fontSize: 16)),
-                RadioListTile<String>(
-                  title: const Text('Aluno'),
-                  value: 'aluno',
-                  groupValue: _userType,
-                  onChanged: (value) => setState(() => _userType = value),
-                ),
-                RadioListTile<String>(
-                  title: const Text('Treinador'),
-                  value: 'treinador',
-                  groupValue: _userType,
-                  onChanged: (value) => setState(() => _userType = value),
-                ),
-                RadioListTile<String>(
-                  title: const Text('Nutricionista'),
-                  value: 'nutricionista',
-                  groupValue: _userType,
-                  onChanged: (value) => setState(() => _userType = value),
-                ),
-                const SizedBox(height: 32),
-                _isLoading
-                    ? const Center(child: CircularProgressIndicator())
-                    : ElevatedButton(
-                        onPressed: _saveProfile,
-                        style: ElevatedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          backgroundColor: Colors.deepOrange,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Complete o seu Perfil',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 32),
+                  const Text('Eu sou um:', style: TextStyle(fontSize: 18)),
+                  const SizedBox(height: 16),
+                  // ALTERADO: RadioListTile agora usa o enum UserType.
+                  RadioListTile<UserType>(
+                    title: const Text('Aluno'),
+                    value: UserType.aluno,
+                    groupValue: _selectedUserType,
+                    onChanged: (value) => setState(() => _selectedUserType = value),
+                  ),
+                  RadioListTile<UserType>(
+                    title: const Text('Treinador'),
+                    value: UserType.treinador,
+                    groupValue: _selectedUserType,
+                    onChanged: (value) => setState(() => _selectedUserType = value),
+                  ),
+                  RadioListTile<UserType>(
+                    title: const Text('Nutricionista'),
+                    value: UserType.nutricionista,
+                    groupValue: _selectedUserType,
+                    onChanged: (value) => setState(() => _selectedUserType = value),
+                  ),
+                  const SizedBox(height: 32),
+                  _isLoading
+                      ? const Center(child: CircularProgressIndicator())
+                      : ElevatedButton(
+                          onPressed: _saveProfile,
+                          style: ElevatedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 16),
                           ),
+                          child: const Text('Salvar e Continuar',
+                              style: TextStyle(fontSize: 18)),
                         ),
-                        child: const Text('Salvar e Continuar',
-                            style: TextStyle(fontSize: 18, color: Colors.white)),
-                      ),
-              ],
-            ),
+                ],
+              ),
           ),
         ),
       ),

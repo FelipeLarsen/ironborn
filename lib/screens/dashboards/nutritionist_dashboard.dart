@@ -1,3 +1,5 @@
+// ARQUIVO ATUALIZADO: lib/screens/dashboards/nutritionist_dashboard.dart
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -16,7 +18,6 @@ class NutritionistDashboard extends StatefulWidget {
 class _NutritionistDashboardState extends State<NutritionistDashboard> {
   final _patientCodeController = TextEditingController();
 
-  // Função para mostrar o diálogo de convite
   void _showInviteDialog() {
     showDialog(
       context: context,
@@ -44,29 +45,28 @@ class _NutritionistDashboardState extends State<NutritionistDashboard> {
     );
   }
 
-  // Função para adicionar o paciente no Firestore
   Future<void> _addPatient() async {
     final patientId = _patientCodeController.text.trim();
     if (patientId.isEmpty) return;
 
-    // Usamos o `mounted` para garantir que o widget ainda está na árvore
-    if (!mounted) return;
+    final navigator = Navigator.of(context);
+    final messenger = ScaffoldMessenger.of(context);
 
     try {
-      // Atualiza o documento do paciente, definindo o nutritionistId
+      // ALTERADO: Usa widget.user.id em vez de chamar o FirebaseAuth.
       await FirebaseFirestore.instance
           .collection('users')
           .doc(patientId)
-          .update({'nutritionistId': widget.user.uid});
+          .update({'nutritionistId': widget.user.id});
 
-      ScaffoldMessenger.of(context).showSnackBar(
+      messenger.showSnackBar(
         const SnackBar(
           content: Text('Paciente adicionado com sucesso!'),
           backgroundColor: Colors.green,
         ),
       );
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      messenger.showSnackBar(
         const SnackBar(
           content: Text('Erro: Paciente não encontrado ou código inválido.'),
           backgroundColor: Colors.red,
@@ -74,7 +74,7 @@ class _NutritionistDashboardState extends State<NutritionistDashboard> {
       );
     } finally {
       _patientCodeController.clear();
-      Navigator.pop(context); // Fecha o diálogo
+      navigator.pop(); // Fecha o diálogo
     }
   }
 
@@ -131,7 +131,8 @@ class _NutritionistDashboardState extends State<NutritionistDashboard> {
               child: StreamBuilder<QuerySnapshot>(
                 stream: FirebaseFirestore.instance
                     .collection('users')
-                    .where('nutritionistId', isEqualTo: widget.user.uid)
+                    // ALTERADO: Usa widget.user.id para desacoplar do FirebaseAuth.
+                    .where('nutritionistId', isEqualTo: widget.user.id)
                     .snapshots(),
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
@@ -148,8 +149,11 @@ class _NutritionistDashboardState extends State<NutritionistDashboard> {
                   return ListView.builder(
                     itemCount: patientDocs.length,
                     itemBuilder: (context, index) {
+                      final patientDoc = patientDocs[index];
+                      // ALTERADO: Passa o ID do documento explicitamente para o construtor.
                       final patient = UserModel.fromMap(
-                        patientDocs[index].data() as Map<String, dynamic>,
+                        patientDoc.data() as Map<String, dynamic>,
+                        patientDoc.id,
                       );
                       return Card(
                         shape: RoundedRectangleBorder(

@@ -1,3 +1,5 @@
+// ARQUIVO ATUALIZADO: lib/screens/profile_screen.dart
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import '../models/user_model.dart';
@@ -12,12 +14,16 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   late final TextEditingController _nameController;
+  // NOVO: estado para o nome local, para refletir mudanças sem pop/push.
+  late String _currentName;
   bool _isLoading = false;
 
   @override
   void initState() {
     super.initState();
-    _nameController = TextEditingController(text: widget.user.name);
+    // NOVO: Inicializa o estado local e o controller.
+    _currentName = widget.user.name;
+    _nameController = TextEditingController(text: _currentName);
   }
 
   @override
@@ -35,24 +41,35 @@ class _ProfileScreenState extends State<ProfileScreen> {
       return;
     }
 
+    // Se o nome não mudou, não faz nada.
+    if (newName == _currentName) {
+      return;
+    }
+
     setState(() => _isLoading = true);
 
     try {
       await FirebaseFirestore.instance
           .collection('users')
-          .doc(widget.user.uid)
+          .doc(widget.user.id) // ALTERADO: de uid para id.
           .update({'name': newName});
-      
+
       if (!mounted) return;
+      
+      // NOVO: Atualiza o estado local para refletir a mudança imediatamente.
+      setState(() {
+        _currentName = newName;
+      });
+
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Perfil atualizado com sucesso!'), backgroundColor: Colors.green),
+        const SnackBar(
+            content: Text('Perfil atualizado com sucesso!'),
+            backgroundColor: Colors.green),
       );
-      // Opcional: Atualizar o nome no objeto local para refletir a mudança imediatamente
-      // setState(() {
-      //   widget.user.name = newName; // Requer que o campo 'name' no UserModel seja 'var'
-      // });
     } catch (e) {
       if (!mounted) return;
+      // Reverte o controller para o nome antigo em caso de erro.
+      _nameController.text = _currentName;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Erro ao atualizar o perfil: $e')),
       );
@@ -86,7 +103,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ListTile(
             leading: const Icon(Icons.badge),
             title: const Text('Tipo de Perfil'),
-            subtitle: Text(widget.user.userType.toUpperCase()),
+            // ALTERADO: Usa .name do enum e capitaliza a primeira letra.
+            subtitle: Text(widget.user.userType.name[0].toUpperCase() +
+                widget.user.userType.name.substring(1)),
           ),
           const SizedBox(height: 32),
           _isLoading

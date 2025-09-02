@@ -1,9 +1,9 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'create_profile_screen.dart';
-import 'home_screen.dart';
-import 'login_screen.dart';
+import 'package:ironborn/screens/create_profile_screen.dart';
+import 'package:ironborn/screens/home_screen.dart';
+import 'package:ironborn/screens/login_screen.dart';
 
 class AuthGate extends StatelessWidget {
   const AuthGate({super.key});
@@ -13,31 +13,33 @@ class AuthGate extends StatelessWidget {
     return StreamBuilder<User?>(
       stream: FirebaseAuth.instance.authStateChanges(),
       builder: (context, authSnapshot) {
-        // Se o utilizador não está logado, mostra a tela de login
+        if (authSnapshot.connectionState == ConnectionState.waiting) {
+          return const Scaffold(
+              body: Center(child: CircularProgressIndicator()));
+        }
+
         if (!authSnapshot.hasData) {
           return const LoginScreen();
         }
 
-        // Se o utilizador está logado, verifica se o perfil existe no Firestore
-        return FutureBuilder<DocumentSnapshot>(
-          future: FirebaseFirestore.instance
+        return StreamBuilder<DocumentSnapshot>(
+          stream: FirebaseFirestore.instance
               .collection('users')
               .doc(authSnapshot.data!.uid)
-              .get(),
-          builder: (context, firestoreSnapshot) {
-            // Enquanto espera, mostra um ecrã de carregamento
-            if (firestoreSnapshot.connectionState == ConnectionState.waiting) {
+              .snapshots(),
+          builder: (context, profileSnapshot) {
+            if (profileSnapshot.connectionState == ConnectionState.waiting) {
               return const Scaffold(
                 body: Center(child: CircularProgressIndicator()),
               );
             }
 
-            // Se o documento do perfil não existe, manda para a criação de perfil
-            if (!firestoreSnapshot.hasData || !firestoreSnapshot.data!.exists) {
+            if (!profileSnapshot.hasData ||
+                !profileSnapshot.data!.exists ||
+                profileSnapshot.data!.get('userType') == null) {
               return const CreateProfileScreen();
             }
 
-            // Se o utilizador está logado e tem perfil, mostra a tela principal
             return const HomeScreen();
           },
         );

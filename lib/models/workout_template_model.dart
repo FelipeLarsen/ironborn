@@ -1,19 +1,27 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+// ARQUIVO ATUALIZADO: lib/models/workout_template_model.dart
 
-// Modelo para representar um exercício dentro de um template
 class Exercise {
+  // ALTERADO: Adicionado 'final' para imutabilidade.
   final String name;
   final String sets;
   final String reps;
 
-  Exercise({required this.name, required this.sets, required this.reps});
-
-  // Converte um objeto Exercise para um formato que o Firestore entende (um Map).
-  Map<String, dynamic> toMap() {
-    return {'name': name, 'sets': sets, 'reps': reps};
+  // ALTERADO: Construtor agora é 'const'.
+  const Exercise({
+    required this.name,
+    required this.sets,
+    required this.reps,
+  });
+  
+  // NOVO: copyWith para atualizações imutáveis em formulários.
+  Exercise copyWith({String? name, String? sets, String? reps}) {
+    return Exercise(
+      name: name ?? this.name,
+      sets: sets ?? this.sets,
+      reps: reps ?? this.reps,
+    );
   }
 
-  // Cria um objeto Exercise a partir de um Map (vindo do Firestore).
   factory Exercise.fromMap(Map<String, dynamic> map) {
     return Exercise(
       name: map['name'] ?? '',
@@ -21,43 +29,62 @@ class Exercise {
       reps: map['reps'] ?? '',
     );
   }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'name': name,
+      'sets': sets,
+      'reps': reps,
+    };
+  }
 }
 
-// Modelo para representar um template de treino completo
 class WorkoutTemplateModel {
-  final String? id; // O ID do documento no Firestore
-  final String creatorId; // O UID do treinador que o criou
+  final String id;
   final String name;
+  final String trainerId;
   final List<Exercise> exercises;
 
-  WorkoutTemplateModel({
-    this.id,
-    required this.creatorId,
+  // ALTERADO: Construtor agora é 'const'.
+  const WorkoutTemplateModel({
+    required this.id,
     required this.name,
+    required this.trainerId,
     required this.exercises,
   });
 
-  // Converte o objeto completo para um Map para ser salvo no Firestore.
-  Map<String, dynamic> toMap() {
-    return {
-      'creatorId': creatorId,
-      'name': name,
-      'exercises': exercises.map((e) => e.toMap()).toList(),
-    };
+  // NOVO: copyWith para atualizações imutáveis.
+  WorkoutTemplateModel copyWith({
+    String? id,
+    String? name,
+    String? trainerId,
+    List<Exercise>? exercises,
+  }) {
+    return WorkoutTemplateModel(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      trainerId: trainerId ?? this.trainerId,
+      exercises: exercises ?? this.exercises,
+    );
   }
 
-  // Cria um objeto WorkoutTemplateModel a partir de um DocumentSnapshot do Firestore.
-  factory WorkoutTemplateModel.fromSnapshot(DocumentSnapshot doc) {
-    final data = doc.data() as Map<String, dynamic>;
+  factory WorkoutTemplateModel.fromMap(Map<String, dynamic> map, String id) {
     return WorkoutTemplateModel(
-      id: doc.id,
-      creatorId: data['creatorId'] ?? '',
-      name: data['name'] ?? '',
-      // Converte a lista de Maps de exercícios de volta para uma lista de objetos Exercise.
-      exercises: (data['exercises'] as List<dynamic>?)
+      id: id,
+      name: map['name'] ?? '',
+      trainerId: map['trainerId'] ?? '',
+      exercises: (map['exercises'] as List<dynamic>?)
               ?.map((e) => Exercise.fromMap(e as Map<String, dynamic>))
               .toList() ??
           [],
     );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'name': name,
+      'trainerId': trainerId,
+      'exercises': exercises.map((e) => e.toMap()).toList(),
+    };
   }
 }

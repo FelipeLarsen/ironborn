@@ -1,3 +1,5 @@
+// ARQUIVO ATUALIZADO: lib/screens/patient_management_screen.dart
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -9,7 +11,8 @@ class PatientManagementScreen extends StatefulWidget {
   const PatientManagementScreen({super.key, required this.patient});
 
   @override
-  State<PatientManagementScreen> createState() => _PatientManagementScreenState();
+  State<PatientManagementScreen> createState() =>
+      _PatientManagementScreenState();
 }
 
 class _PatientManagementScreenState extends State<PatientManagementScreen> {
@@ -17,12 +20,13 @@ class _PatientManagementScreenState extends State<PatientManagementScreen> {
   DietPlanModel? _dietPlan;
   bool _isLoading = true;
 
-  // Controllers
+  // Controllers para os campos principais do plano.
   final _planNameController = TextEditingController();
   final _caloriesController = TextEditingController();
   final _proteinController = TextEditingController();
   final _carbsController = TextEditingController();
   final _fatController = TextEditingController();
+  // Estado local para a lista de refeições.
   List<Meal> _meals = [];
 
   @override
@@ -33,7 +37,6 @@ class _PatientManagementScreenState extends State<PatientManagementScreen> {
 
   @override
   void dispose() {
-    // Limpar todos os controllers para evitar memory leaks
     _planNameController.dispose();
     _caloriesController.dispose();
     _proteinController.dispose();
@@ -43,35 +46,47 @@ class _PatientManagementScreenState extends State<PatientManagementScreen> {
   }
 
   Future<void> _fetchDietPlan() async {
-    final planSnapshot = await FirebaseFirestore.instance
-        .collection('dietPlans')
-        .where('patientId', isEqualTo: widget.patient.uid)
-        .limit(1)
-        .get();
+    try {
+      final planSnapshot = await FirebaseFirestore.instance
+          .collection('dietPlans')
+          .where('patientId', isEqualTo: widget.patient.id) // ALTERADO: de uid para id
+          .limit(1)
+          .get();
 
-    if (planSnapshot.docs.isNotEmpty) {
-      final plan = DietPlanModel.fromSnapshot(planSnapshot.docs.first);
-      setState(() {
-        _dietPlan = plan;
-        _planNameController.text = plan.planName;
-        _caloriesController.text = plan.calories.toString();
-        _proteinController.text = plan.protein.toString();
-        _carbsController.text = plan.carbs.toString();
-        _fatController.text = plan.fat.toString();
-        _meals = List.from(plan.meals);
-      });
+      if (planSnapshot.docs.isNotEmpty) {
+        final doc = planSnapshot.docs.first;
+        // ALTERADO: Usa o construtor fromMap consistente.
+        final plan = DietPlanModel.fromMap(doc.id, doc.data());
+        if (mounted) {
+          setState(() {
+            _dietPlan = plan;
+            _planNameController.text = plan.planName;
+            _caloriesController.text = plan.calories.toString();
+            _proteinController.text = plan.protein.toString();
+            _carbsController.text = plan.carbs.toString();
+            _fatController.text = plan.fat.toString();
+            // Cria uma cópia profunda para edição local.
+            _meals = plan.meals.map((m) => m.copyWith(foods: List.from(m.foods))).toList();
+          });
+        }
+      }
+    } catch (e) {
+      print("Erro ao buscar plano alimentar: $e");
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
-    setState(() => _isLoading = false);
   }
+
 
   Future<void> _saveDietPlan() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _isLoading = true);
 
     final nutritionistId = FirebaseAuth.instance.currentUser!.uid;
+    // Cria um novo DietPlanModel com os dados atuais do estado.
     final newPlan = DietPlanModel(
       id: _dietPlan?.id,
-      patientId: widget.patient.uid,
+      patientId: widget.patient.id, // ALTERADO: de uid para id
       nutritionistId: nutritionistId,
       planName: _planNameController.text,
       calories: int.tryParse(_caloriesController.text) ?? 0,
@@ -83,26 +98,30 @@ class _PatientManagementScreenState extends State<PatientManagementScreen> {
 
     try {
       final collection = FirebaseFirestore.instance.collection('dietPlans');
-      if (newPlan.id == null) {
+      if (_dietPlan == null || _dietPlan!.id == null) {
         await collection.add(newPlan.toMap());
       } else {
-        await collection.doc(newPlan.id).update(newPlan.toMap());
+        await collection.doc(_dietPlan!.id).set(newPlan.toMap());
       }
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Plano salvo com sucesso!'), backgroundColor: Colors.green),
+        const SnackBar(
+            content: Text('Plano salvo com sucesso!'),
+            backgroundColor: Colors.green),
       );
+      Navigator.pop(context); // Opcional: voltar após salvar
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erro: $e')));
     } finally {
-      if(mounted) setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
-
+  
+  // Funções de manipulação de estado (agora imutáveis)
   void _addMeal() {
     setState(() {
-      _meals.add(Meal(name: '', time: '', foods: []));
+      _meals.add(const Meal(name: '', time: '', foods: []));
     });
   }
 
@@ -112,15 +131,37 @@ class _PatientManagementScreenState extends State<PatientManagementScreen> {
     });
   }
 
+  void _updateMeal(int mealIndex, {String? name, String? time}) {
+    setState(() {
+      _meals[mealIndex] = _meals[mealIndex].copyWith(name: name, time: time);
+    });
+  }
+
   void _addFoodToMeal(int mealIndex) {
     setState(() {
-      _meals[mealIndex].foods.add(FoodItem(description: '', quantity: ''));
+      final updatedFoods = List<FoodItem>.from(_meals[mealIndex].foods)
+        ..add(const FoodItem(description: '', quantity: ''));
+      _meals[mealIndex] = _meals[mealIndex].copyWith(foods: updatedFoods);
     });
   }
 
   void _removeFoodFromMeal(int mealIndex, int foodIndex) {
     setState(() {
-      _meals[mealIndex].foods.removeAt(foodIndex);
+      final updatedFoods = List<FoodItem>.from(_meals[mealIndex].foods)
+        ..removeAt(foodIndex);
+      _meals[mealIndex] = _meals[mealIndex].copyWith(foods: updatedFoods);
+    });
+  }
+
+  void _updateFoodInMeal(int mealIndex, int foodIndex, {String? description, String? quantity}) {
+    setState(() {
+      final foodToUpdate = _meals[mealIndex].foods[foodIndex];
+      final updatedFood = foodToUpdate.copyWith(description: description, quantity: quantity);
+      
+      final updatedFoods = List<FoodItem>.from(_meals[mealIndex].foods);
+      updatedFoods[foodIndex] = updatedFood;
+
+      _meals[mealIndex] = _meals[mealIndex].copyWith(foods: updatedFoods);
     });
   }
 
@@ -130,8 +171,12 @@ class _PatientManagementScreenState extends State<PatientManagementScreen> {
       appBar: AppBar(
         title: Text('A gerir: ${widget.patient.name}'),
         actions: [
-          if (_isLoading) const Padding(padding: EdgeInsets.all(16.0), child: CircularProgressIndicator(color: Colors.white))
-          else IconButton(icon: const Icon(Icons.save), onPressed: _saveDietPlan),
+          if (_isLoading)
+            const Padding(
+                padding: EdgeInsets.all(16.0),
+                child: CircularProgressIndicator(color: Colors.white))
+          else
+            IconButton(icon: const Icon(Icons.save), onPressed: _saveDietPlan),
         ],
       ),
       body: _isLoading
@@ -141,15 +186,34 @@ class _PatientManagementScreenState extends State<PatientManagementScreen> {
               child: ListView(
                 padding: const EdgeInsets.all(16.0),
                 children: [
-                  TextFormField(controller: _planNameController, decoration: const InputDecoration(labelText: 'Nome do Plano'), validator: (v) => v!.isEmpty ? 'Campo obrigatório' : null),
+                  TextFormField(
+                      controller: _planNameController,
+                      decoration: const InputDecoration(labelText: 'Nome do Plano'),
+                      validator: (v) => v!.isEmpty ? 'Campo obrigatório' : null),
                   const SizedBox(height: 16),
-                  const Text('Metas Diárias', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                  TextFormField(controller: _caloriesController, decoration: const InputDecoration(labelText: 'Calorias (kcal)'), keyboardType: TextInputType.number),
-                  TextFormField(controller: _proteinController, decoration: const InputDecoration(labelText: 'Proteínas (g)'), keyboardType: TextInputType.number),
-                  TextFormField(controller: _carbsController, decoration: const InputDecoration(labelText: 'Carboidratos (g)'), keyboardType: TextInputType.number),
-                  TextFormField(controller: _fatController, decoration: const InputDecoration(labelText: 'Gorduras (g)'), keyboardType: TextInputType.number),
+                  const Text('Metas Diárias',
+                      style:
+                          TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  TextFormField(
+                      controller: _caloriesController,
+                      decoration: const InputDecoration(labelText: 'Calorias (kcal)'),
+                      keyboardType: TextInputType.number),
+                  TextFormField(
+                      controller: _proteinController,
+                      decoration: const InputDecoration(labelText: 'Proteínas (g)'),
+                      keyboardType: TextInputType.number),
+                  TextFormField(
+                      controller: _carbsController,
+                      decoration: const InputDecoration(labelText: 'Carboidratos (g)'),
+                      keyboardType: TextInputType.number),
+                  TextFormField(
+                      controller: _fatController,
+                      decoration: const InputDecoration(labelText: 'Gorduras (g)'),
+                      keyboardType: TextInputType.number),
                   const SizedBox(height: 24),
-                  const Text('Refeições', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  const Text('Refeições',
+                      style:
+                          TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                   ..._meals.asMap().entries.map((entry) => _buildMealCard(entry.key)),
                   const SizedBox(height: 16),
                   TextButton.icon(
@@ -173,21 +237,23 @@ class _PatientManagementScreenState extends State<PatientManagementScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Expanded(
                   child: TextFormField(
                     initialValue: meal.name,
-                    onChanged: (value) => meal.name = value,
-                    decoration: const InputDecoration(labelText: 'Nome da Refeição'),
+                    onChanged: (value) => _updateMeal(mealIndex, name: value),
+                    decoration:
+                        const InputDecoration(labelText: 'Nome da Refeição'),
+                    validator: (v) => v!.isEmpty ? 'Obrigatório.' : null,
                   ),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: TextFormField(
                     initialValue: meal.time,
-                    onChanged: (value) => meal.time = value,
-                    decoration: const InputDecoration(labelText: 'Horário (ex: 09:00)'),
+                    onChanged: (value) => _updateMeal(mealIndex, time: value),
+                    decoration:
+                        const InputDecoration(labelText: 'Horário (ex: 09:00)'),
                   ),
                 ),
                 IconButton(
@@ -198,7 +264,10 @@ class _PatientManagementScreenState extends State<PatientManagementScreen> {
             ),
             const SizedBox(height: 16),
             const Text('Alimentos', style: TextStyle(fontWeight: FontWeight.bold)),
-            ...meal.foods.asMap().entries.map((entry) => _buildFoodItemTile(mealIndex, entry.key)),
+            ...meal.foods
+                .asMap()
+                .entries
+                .map((entry) => _buildFoodItemTile(mealIndex, entry.key)),
             const SizedBox(height: 8),
             Align(
               alignment: Alignment.centerRight,
@@ -222,8 +291,10 @@ class _PatientManagementScreenState extends State<PatientManagementScreen> {
           flex: 3,
           child: TextFormField(
             initialValue: food.description,
-            onChanged: (value) => food.description = value,
+            onChanged: (value) =>
+                _updateFoodInMeal(mealIndex, foodIndex, description: value),
             decoration: const InputDecoration(labelText: 'Alimento'),
+            validator: (v) => v!.isEmpty ? 'Obrigatório.' : null,
           ),
         ),
         const SizedBox(width: 8),
@@ -231,7 +302,8 @@ class _PatientManagementScreenState extends State<PatientManagementScreen> {
           flex: 2,
           child: TextFormField(
             initialValue: food.quantity,
-            onChanged: (value) => food.quantity = value,
+            onChanged: (value) =>
+                _updateFoodInMeal(mealIndex, foodIndex, quantity: value),
             decoration: const InputDecoration(labelText: 'Quantidade'),
           ),
         ),

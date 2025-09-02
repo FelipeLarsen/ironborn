@@ -1,84 +1,56 @@
+// ARQUIVO ATUALIZADO: lib/screens/home_screen.dart
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import '../models/user_model.dart';
-import 'dashboards/student_dashboard.dart';
-import 'dashboards/trainer_dashboard.dart';
-import 'dashboards/nutritionist_dashboard.dart';
+import 'package:ironborn/models/user_model.dart'; // ALTERADO: Import agora usado para o Enum.
+import 'package:ironborn/screens/dashboards/nutritionist_dashboard.dart';
+import 'package:ironborn/screens/dashboards/student_dashboard.dart';
+import 'package:ironborn/screens/dashboards/trainer_dashboard.dart';
 
-class HomeScreen extends StatefulWidget {
+class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
 
   @override
-  State<HomeScreen> createState() => _HomeScreenState();
-}
-
-class _HomeScreenState extends State<HomeScreen> {
-  // Future para guardar os dados do perfil do utilizador
-  late final Future<UserModel?> _userProfileFuture;
-
-  @override
-  void initState() {
-    super.initState();
-    _userProfileFuture = _fetchUserProfile();
-  }
-
-  // Função para buscar os dados do perfil no Firestore
-  Future<UserModel?> _fetchUserProfile() async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return null;
-
-    try {
-      final doc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
-      if (doc.exists) {
-        return UserModel.fromMap(doc.data()!);
-      }
-    } catch (e) {
-      // Tratar o erro, se necessário
-      print("Erro ao buscar perfil: $e");
-    }
-    return null;
-  }
-
-  @override
   Widget build(BuildContext context) {
-    return FutureBuilder<UserModel?>(
-      future: _userProfileFuture,
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      // Este caso raramente deve acontecer devido ao AuthGate, mas é uma boa proteção.
+      return const Scaffold(
+        body: Center(
+          child: Text("Utilizador não encontrado. Por favor, faça login novamente."),
+        ),
+      );
+    }
+
+    // ALTERADO: de FutureBuilder para StreamBuilder para reatividade em tempo real.
+    return StreamBuilder<DocumentSnapshot>(
+      // ALTERADO: de .get() para .snapshots()
+      stream:
+          FirebaseFirestore.instance.collection('users').doc(user.uid).snapshots(),
       builder: (context, snapshot) {
-        // Enquanto os dados estão a ser carregados
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Scaffold(body: Center(child: CircularProgressIndicator()));
         }
-
-        // Se houver um erro ou o perfil não for encontrado
-        if (snapshot.hasError || !snapshot.hasData || snapshot.data == null) {
-          return Scaffold(
-            body: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Text('Não foi possível carregar o seu perfil.'),
-                  TextButton(
-                    onPressed: () => FirebaseAuth.instance.signOut(),
-                    child: const Text('Fazer Login Novamente'),
-                  )
-                ],
-              ),
-            ),
-          );
+        if (snapshot.hasError) {
+          return Scaffold(body: Center(child: Text("Erro: ${snapshot.error}")));
+        }
+        if (!snapshot.hasData || !snapshot.data!.exists) {
+          return const Scaffold(body: Center(child: Text("Perfil não encontrado.")));
         }
 
-        final userProfile = snapshot.data!;
+        final userData = snapshot.data!.data() as Map<String, dynamic>;
+        final userModel = UserModel.fromMap(userData, snapshot.data!.id);
 
-        // Direciona para o dashboard correto com base no userType
-        switch (userProfile.userType) {
-          case 'treinador':
-            return TrainerDashboard(user: userProfile);
-          case 'nutricionista':
-            return NutritionistDashboard(user: userProfile);
-          case 'aluno':
+        // ALTERADO: switch agora usa o enum UserType para mais segurança.
+        switch (userModel.userType) {
+          case UserType.treinador:
+            return TrainerDashboard(user: userModel);
+          case UserType.nutricionista:
+            return NutritionistDashboard(user: userModel);
+          case UserType.aluno:
           default:
-            return StudentDashboard(user: userProfile);
+            return StudentDashboard(user: userModel);
         }
       },
     );

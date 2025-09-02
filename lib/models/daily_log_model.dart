@@ -1,13 +1,15 @@
+// ARQUIVO ATUALIZADO: lib/models/daily_log_model.dart
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class DailyLogModel {
   final String? id;
   final String studentId;
-  final Timestamp date; // Usamos Timestamp para facilitar a ordenação
+  final Timestamp date;
   final double? bodyWeightKg;
   final bool? workoutCompleted;
 
-  DailyLogModel({
+  const DailyLogModel({ // ADICIONADO: construtor const
     this.id,
     required this.studentId,
     required this.date,
@@ -15,7 +17,6 @@ class DailyLogModel {
     this.workoutCompleted,
   });
 
-  // Converte o objeto para um Map, tratando valores nulos
   Map<String, dynamic> toMap() {
     final map = <String, dynamic>{
       'studentId': studentId,
@@ -24,5 +25,17 @@ class DailyLogModel {
     if (bodyWeightKg != null) map['bodyWeightKg'] = bodyWeightKg;
     if (workoutCompleted != null) map['workoutCompleted'] = workoutCompleted;
     return map;
+  }
+
+  // NOVO: Factory constructor para criar um objeto a partir de um DocumentSnapshot.
+  factory DailyLogModel.fromSnapshot(DocumentSnapshot doc) {
+    final data = doc.data() as Map<String, dynamic>;
+    return DailyLogModel(
+      id: doc.id,
+      studentId: data['studentId'] ?? '',
+      date: data['date'] ?? Timestamp.now(),
+      bodyWeightKg: data['bodyWeightKg'],
+      workoutCompleted: data['workoutCompleted'],
+    );
   }
 }

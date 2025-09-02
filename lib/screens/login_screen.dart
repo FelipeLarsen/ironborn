@@ -1,5 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart'; // Importar o pacote Google Fonts
+import 'package:ironborn/screens/register_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -9,42 +11,13 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  // Controladores para ler o texto dos campos de input
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-
-  // Variável para controlar o estado de carregamento
   bool _isLoading = false;
 
-  // Função para lidar com o registo de um novo utilizador
-  Future<void> _signUp() async {
-    setState(() {
-      _isLoading = true;
-    });
-
-    try {
-      await FirebaseAuth.instance.createUserWithEmailAndPassword(
-        email: _emailController.text.trim(),
-        password: _passwordController.text.trim(),
-      );
-      // O AuthGate irá detetar o login e navegar automaticamente
-    } on FirebaseAuthException catch (e) {
-      // Mostra uma mensagem de erro amigável
-      _showErrorSnackbar(e.message ?? "Ocorreu um erro desconhecido.");
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
-    }
-  }
-
-  // Função para lidar com o login de um utilizador existente
   Future<void> _signIn() async {
-    setState(() {
-      _isLoading = true;
-    });
+    if (!mounted) return;
+    setState(() => _isLoading = true);
 
     try {
       await FirebaseAuth.instance.signInWithEmailAndPassword(
@@ -52,17 +25,21 @@ class _LoginScreenState extends State<LoginScreen> {
         password: _passwordController.text.trim(),
       );
     } on FirebaseAuthException catch (e) {
+      if (!mounted) return;
       _showErrorSnackbar(e.message ?? "Ocorreu um erro desconhecido.");
     } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
-  // Função auxiliar para mostrar uma snackbar de erro
+  void _navigateToRegisterScreen() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => const RegisterScreen(),
+      ),
+    );
+  }
+
   void _showErrorSnackbar(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -82,27 +59,38 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: SafeArea(
-        child: Center(
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 480),
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(24.0),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // Logo ou Título
-                const Text(
-                  'Ironborn',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 48,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.deepOrange,
-                  ),
+                Column(
+                  children: [
+                    Text(
+                      'IB',
+                      style: GoogleFonts.roboto(
+                        fontSize: 96,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.deepOrange,
+                      ),
+                    ),
+                    Text(
+                      'IRONBORN',
+                      style: GoogleFonts.robotoCondensed(
+                        fontSize: 24,
+                        fontWeight: FontWeight.w300,
+                        letterSpacing: 8,
+                        color: Colors.white70,
+                      ),
+                    ),
+                  ],
                 ),
+                // --- FIM DO NOVO LOGO ---
                 const SizedBox(height: 48),
-
-                // Campo de E-mail
                 TextField(
                   controller: _emailController,
                   keyboardType: TextInputType.emailAddress,
@@ -114,11 +102,9 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ),
                 const SizedBox(height: 16),
-
-                // Campo de Senha
                 TextField(
                   controller: _passwordController,
-                  obscureText: true, // Esconde a senha
+                  obscureText: true,
                   decoration: InputDecoration(
                     labelText: 'Senha',
                     border: OutlineInputBorder(
@@ -127,8 +113,6 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ),
                 const SizedBox(height: 32),
-
-                // Botão de Entrar
                 _isLoading
                     ? const Center(child: CircularProgressIndicator())
                     : ElevatedButton(
@@ -146,10 +130,8 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                       ),
                 const SizedBox(height: 16),
-
-                // Botão de Cadastrar
                 TextButton(
-                  onPressed: _isLoading ? null : _signUp,
+                  onPressed: _isLoading ? null : _navigateToRegisterScreen,
                   child: const Text(
                     'Não tem uma conta? Cadastre-se',
                     style: TextStyle(color: Colors.deepOrangeAccent),

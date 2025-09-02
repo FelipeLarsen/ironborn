@@ -1,11 +1,22 @@
+// ARQUIVO ATUALIZADO: lib/models/diet_plan_model.dart
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-// Modelo para um alimento dentro de uma refeição
 class FoodItem {
-  String description;
-  String quantity;
+  // ALTERADO: Adicionado 'final' para imutabilidade.
+  final String description;
+  final String quantity;
 
-  FoodItem({required this.description, required this.quantity});
+  // ALTERADO: Construtor agora é 'const'.
+  const FoodItem({required this.description, required this.quantity});
+
+  // NOVO: copyWith para atualizações imutáveis em formulários.
+  FoodItem copyWith({String? description, String? quantity}) {
+    return FoodItem(
+      description: description ?? this.description,
+      quantity: quantity ?? this.quantity,
+    );
+  }
 
   Map<String, dynamic> toMap() {
     return {'description': description, 'quantity': quantity};
@@ -19,13 +30,23 @@ class FoodItem {
   }
 }
 
-// Modelo para uma refeição
 class Meal {
-  String name;
-  String time;
-  List<FoodItem> foods;
+  // ALTERADO: Adicionado 'final' para imutabilidade.
+  final String name;
+  final String time;
+  final List<FoodItem> foods;
 
-  Meal({required this.name, required this.time, required this.foods});
+  // ALTERADO: Construtor agora é 'const'.
+  const Meal({required this.name, required this.time, required this.foods});
+
+  // NOVO: copyWith para atualizações imutáveis em formulários.
+  Meal copyWith({String? name, String? time, List<FoodItem>? foods}) {
+    return Meal(
+      name: name ?? this.name,
+      time: time ?? this.time,
+      foods: foods ?? this.foods,
+    );
+  }
 
   Map<String, dynamic> toMap() {
     return {
@@ -47,7 +68,6 @@ class Meal {
   }
 }
 
-// Modelo para o plano alimentar completo
 class DietPlanModel {
   final String? id;
   final String patientId;
@@ -59,7 +79,8 @@ class DietPlanModel {
   final int fat;
   final List<Meal> meals;
 
-  DietPlanModel({
+  // ALTERADO: Construtor agora é 'const'.
+  const DietPlanModel({
     this.id,
     required this.patientId,
     required this.nutritionistId,
@@ -70,6 +91,31 @@ class DietPlanModel {
     this.fat = 0,
     required this.meals,
   });
+
+  // NOVO: copyWith para atualizações imutáveis.
+  DietPlanModel copyWith({
+    String? id,
+    String? patientId,
+    String? nutritionistId,
+    String? planName,
+    int? calories,
+    int? protein,
+    int? carbs,
+    int? fat,
+    List<Meal>? meals,
+  }) {
+    return DietPlanModel(
+      id: id ?? this.id,
+      patientId: patientId ?? this.patientId,
+      nutritionistId: nutritionistId ?? this.nutritionistId,
+      planName: planName ?? this.planName,
+      calories: calories ?? this.calories,
+      protein: protein ?? this.protein,
+      carbs: carbs ?? this.carbs,
+      fat: fat ?? this.fat,
+      meals: meals ?? this.meals,
+    );
+  }
 
   Map<String, dynamic> toMap() {
     return {
@@ -86,11 +132,11 @@ class DietPlanModel {
     };
   }
 
-  factory DietPlanModel.fromSnapshot(DocumentSnapshot doc) {
-    final data = doc.data() as Map<String, dynamic>;
+  // ALTERADO: Nome do construtor de 'fromSnapshot' para 'fromMap' para consistência.
+  factory DietPlanModel.fromMap(String documentId, Map<String, dynamic> data) {
     final goals = data['goals'] as Map<String, dynamic>? ?? {};
     return DietPlanModel(
-      id: doc.id,
+      id: documentId,
       patientId: data['patientId'] ?? '',
       nutritionistId: data['nutritionistId'] ?? '',
       planName: data['planName'] ?? '',
