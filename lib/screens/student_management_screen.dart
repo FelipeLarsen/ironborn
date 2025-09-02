@@ -6,10 +6,10 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:ironborn/models/daily_log_model.dart';
 import 'package:ironborn/models/user_model.dart';
-// CORRIGIDO: Caminhos de importação ajustados
 import 'package:ironborn/models/workout_schedule_model.dart';
 import 'package:ironborn/models/workout_template_model.dart';
 import 'package:ironborn/widgets/responsive_layout.dart';
+import 'package:ironborn/screens/progress_screen.dart'; // NOVO: Importar o ecrã de progresso.
 
 class StudentManagementScreen extends StatefulWidget {
   final UserModel student;
@@ -84,16 +84,15 @@ class _StudentManagementScreenState extends State<StudentManagementScreen> {
   }
 
   Future<void> _saveSchedule() async {
-    final scheduleToSave = _schedule.copyWith();
-
     final scheduleRef = FirebaseFirestore.instance
         .collection('workoutSchedules')
         .doc(widget.student.id);
 
-    await scheduleRef.set(scheduleToSave.toMap());
+    // Usa o método copyWith para garantir a imutabilidade antes de salvar.
+    await scheduleRef.set(_schedule.copyWith().toMap());
 
     if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+      ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text("Agenda salva com sucesso!"),
           backgroundColor: Colors.green,
@@ -140,9 +139,10 @@ class _StudentManagementScreenState extends State<StudentManagementScreen> {
             items: items,
             onChanged: (String? newValue) {
               setState(() {
-                final newWeeklySchedule = Map<String, String?>.from(_schedule.weeklySchedule);
-                newWeeklySchedule[day] = newValue;
-                _schedule = _schedule.copyWith(weeklySchedule: newWeeklySchedule);
+                // Cria uma cópia do mapa para modificar, mantendo o estado imutável.
+                final newScheduleMap = Map<String, String?>.from(_schedule.weeklySchedule);
+                newScheduleMap[day] = newValue;
+                _schedule = _schedule.copyWith(weeklySchedule: newScheduleMap);
               });
             },
           ),
@@ -162,6 +162,26 @@ class _StudentManagementScreenState extends State<StudentManagementScreen> {
           : ListView(
               padding: const EdgeInsets.all(16.0),
               children: [
+                // NOVO BOTÃO: Para ver o progresso do aluno.
+                ElevatedButton.icon(
+                  icon: const Icon(Icons.show_chart),
+                  label: const Text("Ver Progresso do Aluno"),
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => ProgressScreen(
+                          userId: widget.student.id,
+                          userName: widget.student.name,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+                const SizedBox(height: 16),
                 Card(
                   child: Padding(
                     padding: const EdgeInsets.all(16.0),
@@ -187,80 +207,74 @@ class _StudentManagementScreenState extends State<StudentManagementScreen> {
                   ),
                 ),
                 const SizedBox(height: 24),
-                _buildHistorySection(),
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            "Histórico Recente",
+                            style: Theme.of(context).textTheme.titleLarge,
+                          ),
+                          const SizedBox(height: 16),
+                          StreamBuilder<QuerySnapshot>(
+                            stream: FirebaseFirestore.instance
+                                .collection('dailyLogs')
+                                .where('studentId', isEqualTo: widget.student.id)
+                                .orderBy('date', descending: true)
+                                .limit(15)
+                                .snapshots(),
+                            builder: (context, snapshot) {
+                              if (snapshot.connectionState ==
+                                  ConnectionState.waiting) {
+                                return const Center(child: CircularProgressIndicator());
+                              }
+                              if (!snapshot.hasData ||
+                                  snapshot.data!.docs.isEmpty) {
+                                return const Center(
+                                    child: Text("Nenhum registo encontrado."));
+                              }
+
+                              final logs = snapshot.data!.docs;
+
+                              return ListView.builder(
+                                shrinkWrap: true,
+                                physics: const NeverScrollableScrollPhysics(),
+                                itemCount: logs.length,
+                                itemBuilder: (context, index) {
+                                  final log = DailyLogModel.fromSnapshot(logs[index]);
+                                  final date = log.date.toDate();
+                                  final formattedDate =
+                                      DateFormat('dd/MM/yyyy').format(date);
+                                  
+                                  final weightText = log.bodyWeightKg != null
+                                      ? "Peso: ${log.bodyWeightKg}kg"
+                                      : "Peso não registado";
+
+                                  return ListTile(
+                                    leading: log.workoutCompleted == true
+                                        ? const Icon(Icons.check_circle,
+                                            color: Colors.green)
+                                        : const Icon(Icons.cancel,
+                                            color: Colors.redAccent),
+                                    title: Text(
+                                        log.workoutCompleted == true
+                                            ? "Treino Concluído"
+                                            : "Treino Não Concluído",
+                                        style: const TextStyle(fontWeight: FontWeight.bold)),
+                                    subtitle:
+                                        Text("$formattedDate | $weightText"),
+                                  );
+                                },
+                              );
+                            },
+                          ),
+                        ]),
+                  ),
+                )
               ],
             ),
-    );
-  }
-
-  Widget _buildHistorySection() {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              "Histórico Recente",
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-            const SizedBox(height: 16),
-            StreamBuilder<QuerySnapshot>(
-              stream: FirebaseFirestore.instance
-                  .collection('dailyLogs')
-                  .where('studentId', isEqualTo: widget.student.id)
-                  .orderBy('date', descending: true)
-                  .limit(15)
-                  .snapshots(),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                  return const Center(
-                    child: Padding(
-                      padding: EdgeInsets.symmetric(vertical: 16.0),
-                      child: Text("Nenhum registo de log encontrado."),
-                    ),
-                  );
-                }
-
-                final logDocs = snapshot.data!.docs;
-
-                return ListView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: logDocs.length,
-                  itemBuilder: (context, index) {
-                    final log = DailyLogModel.fromSnapshot(logDocs[index]);
-                    return _buildLogTile(log);
-                  },
-                );
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildLogTile(DailyLogModel log) {
-    final formattedDate = DateFormat('dd/MM/yyyy').format(log.date.toDate());
-    final bool workoutCompleted = log.workoutCompleted ?? false;
-    
-    return ListTile(
-      leading: Icon(
-        workoutCompleted ? Icons.check_circle : Icons.cancel,
-        color: workoutCompleted ? Colors.green : Colors.redAccent,
-      ),
-      title: Text("Treino ${workoutCompleted ? 'Concluído' : 'Não Concluído'}"),
-      subtitle: Text(formattedDate),
-      trailing: log.bodyWeightKg != null
-        ? Text(
-            "${log.bodyWeightKg} kg",
-            style: const TextStyle(fontWeight: FontWeight.bold),
-          )
-        : null,
     );
   }
 }

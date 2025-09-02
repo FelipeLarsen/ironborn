@@ -3,7 +3,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart'; // ADICIONADO: Import para Clipboard
+import 'package:flutter/services.dart';
 import 'package:ironborn/utils/helpers.dart';
 import '../../models/daily_log_model.dart';
 import '../../models/diet_plan_model.dart';
@@ -13,6 +13,7 @@ import '../../models/workout_template_model.dart';
 import '../daily_workout_screen.dart';
 import '../diet_plan_screen.dart';
 import '../profile_screen.dart';
+import '../progress_screen.dart'; // NOVO: Importar o ecrã de progresso.
 
 class StudentDashboard extends StatefulWidget {
   final UserModel user;
@@ -34,12 +35,6 @@ class _StudentDashboardState extends State<StudentDashboard> {
     _dietPlanFuture = _fetchDietPlan();
   }
 
-  @override
-  void dispose() {
-    _weightController.dispose();
-    super.dispose();
-  }
-
   Future<void> _saveWeight() async {
     final weightText = _weightController.text.trim().replaceAll(',', '.');
     final weight = double.tryParse(weightText);
@@ -53,8 +48,7 @@ class _StudentDashboardState extends State<StudentDashboard> {
     }
 
     final logDocId = getTodayLogDocId(widget.user.id);
-    final logRef =
-        FirebaseFirestore.instance.collection('dailyLogs').doc(logDocId);
+    final logRef = FirebaseFirestore.instance.collection('dailyLogs').doc(logDocId);
 
     final logData = DailyLogModel(
       studentId: widget.user.id,
@@ -84,7 +78,7 @@ class _StudentDashboardState extends State<StudentDashboard> {
     if (widget.user.trainerId == null || widget.user.trainerId!.isEmpty) {
       return null;
     }
-
+    
     try {
       final scheduleDoc = await FirebaseFirestore.instance
           .collection('workoutSchedules')
@@ -93,10 +87,11 @@ class _StudentDashboardState extends State<StudentDashboard> {
 
       if (!scheduleDoc.exists) return null;
 
-      final schedule =
-          WorkoutScheduleModel.fromMap(scheduleDoc.data()!, scheduleDoc.id);
-
+      final schedule = WorkoutScheduleModel.fromMap(
+          scheduleDoc.data()!, scheduleDoc.id);
+      
       final today = getDayOfWeekInEnglish();
+      
       final templateId = schedule.weeklySchedule[today];
 
       if (templateId == null) return null;
@@ -110,15 +105,13 @@ class _StudentDashboardState extends State<StudentDashboard> {
 
       return WorkoutTemplateModel.fromMap(templateDoc.data()!, templateDoc.id);
     } catch (e) {
-      // Don't invoke 'print' in production code.
-      // Consider using a logging framework.
+      debugPrint("Erro ao buscar treino do dia: $e");
       return null;
     }
   }
 
   Future<DietPlanModel?> _fetchDietPlan() async {
-    if (widget.user.nutritionistId == null ||
-        widget.user.nutritionistId!.isEmpty) {
+    if (widget.user.nutritionistId == null || widget.user.nutritionistId!.isEmpty) {
       return null;
     }
     try {
@@ -133,8 +126,7 @@ class _StudentDashboardState extends State<StudentDashboard> {
       final doc = planSnapshot.docs.first;
       return DietPlanModel.fromMap(doc.id, doc.data());
     } catch (e) {
-      // Don't invoke 'print' in production code.
-      // Consider using a logging framework.
+      debugPrint("Erro ao buscar plano alimentar: $e");
       return null;
     }
   }
@@ -166,6 +158,7 @@ class _StudentDashboardState extends State<StudentDashboard> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            // Card do Treino de Hoje
             const Text("Treino de Hoje",
                 style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
@@ -181,7 +174,7 @@ class _StudentDashboardState extends State<StudentDashboard> {
                       ? const ListTile(
                           title: Text("Dia de Descanso ou sem treino!"),
                           subtitle: Text(
-                              "Aproveite para se recuperar ou fale com seu treinador."))
+                              "Aproveite para se recuperar ou fale com o seu treinador."))
                       : ListTile(
                           title: Text(workout.name,
                               style:
@@ -201,6 +194,8 @@ class _StudentDashboardState extends State<StudentDashboard> {
               },
             ),
             const SizedBox(height: 24),
+
+            // CARD: Plano Alimentar
             const Text("Plano Alimentar",
                 style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
@@ -215,7 +210,7 @@ class _StudentDashboardState extends State<StudentDashboard> {
                   child: dietPlan == null
                       ? const ListTile(
                           title: Text("Nenhum plano alimentar atribuído."),
-                          subtitle: Text("Fale com seu nutricionista."))
+                          subtitle: Text("Fale com o seu nutricionista."))
                       : ListTile(
                           title: Text(dietPlan.planName,
                               style:
@@ -234,6 +229,29 @@ class _StudentDashboardState extends State<StudentDashboard> {
               },
             ),
             const SizedBox(height: 24),
+
+            // NOVO CARD: Botão para o Gráfico de Progresso
+            Card(
+              child: ListTile(
+                leading: const Icon(Icons.show_chart, color: Colors.deepOrange),
+                title: const Text("Ver o meu Progresso", style: TextStyle(fontWeight: FontWeight.bold)),
+                trailing: const Icon(Icons.arrow_forward_ios),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => ProgressScreen(
+                        userId: widget.user.id,
+                        userName: widget.user.name,
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+            const SizedBox(height: 24),
+
+            // CARD: Registo de Peso Funcional
             const Text("Registo Diário",
                 style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
@@ -248,7 +266,7 @@ class _StudentDashboardState extends State<StudentDashboard> {
                         keyboardType:
                             const TextInputType.numberWithOptions(decimal: true),
                         decoration: const InputDecoration(
-                          labelText: 'Seu peso hoje (kg)',
+                          labelText: 'O seu peso hoje (kg)',
                         ),
                       ),
                     ),
@@ -261,7 +279,10 @@ class _StudentDashboardState extends State<StudentDashboard> {
                 ),
               ),
             ),
+
             const SizedBox(height: 24),
+
+            // Card do Código de Convite
             const Text("O seu Código de Convite",
                 style: TextStyle(fontSize: 16)),
             const SizedBox(height: 8),
@@ -275,7 +296,8 @@ class _StudentDashboardState extends State<StudentDashboard> {
                 trailing: IconButton(
                   icon: const Icon(Icons.copy),
                   onPressed: () {
-                    Clipboard.setData(ClipboardData(text: widget.user.id));
+                    Clipboard.setData(ClipboardData(
+                        text: widget.user.id));
                     ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(content: Text('Código copiado!')));
                   },
@@ -288,3 +310,4 @@ class _StudentDashboardState extends State<StudentDashboard> {
     );
   }
 }
+
