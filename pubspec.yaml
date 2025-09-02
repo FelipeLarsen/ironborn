@@ -18,6 +18,7 @@ dependencies:
   google_fonts: ^6.3.1
   fl_chart: ^0.68.0 # Biblioteca para os gráficos
   intl: ^0.19.0 # Biblioteca para formatação de datas (já deve ter, mas confirme)
+  timeago: ^3.7.1 # Biblioteca para mostrar tempos relativos (ex: "há 5 minutos")
 
 dev_dependencies:
   flutter_test:

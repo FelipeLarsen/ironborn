@@ -3,7 +3,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:ironborn/models/user_model.dart'; // NOVO: Importar o UserModel
+import 'package:ironborn/models/user_model.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -13,7 +13,6 @@ class RegisterScreen extends StatefulWidget {
 }
 
 class _RegisterScreenState extends State<RegisterScreen> {
-  // ADICIONADO: Chave do formulário para validação.
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
@@ -21,13 +20,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _isLoading = false;
 
   Future<void> _signUp() async {
-    // ADICIONADO: Validação do formulário antes de prosseguir.
     if (!_formKey.currentState!.validate()) {
       return;
     }
 
     if (!mounted) return;
     setState(() => _isLoading = true);
+
+    // ADICIONADO: Captura o Navigator e o ScaffoldMessenger antes das chamadas async.
+    final navigator = Navigator.of(context);
+    final messenger = ScaffoldMessenger.of(context);
 
     try {
       final userCredential =
@@ -36,28 +38,41 @@ class _RegisterScreenState extends State<RegisterScreen> {
         password: _passwordController.text.trim(),
       );
 
-      if (userCredential.user != null) {
-        // ALTERADO: Agora cria uma instância do UserModel e usa toMap()
-        // para garantir consistência e não salvar campos redundantes como 'uid'.
+      final user = userCredential.user;
+      if (user != null) {
         final newUser = UserModel(
-          id: userCredential.user!.uid,
+          id: user.uid,
           email: _emailController.text.trim(),
           name: _nameController.text.trim(),
-          userType: UserType.aluno, // Um valor padrão inicial
+          userType: UserType.aluno,
         );
 
         await FirebaseFirestore.instance
             .collection('users')
             .doc(newUser.id)
             .set(newUser.toMap());
-            
-        // ADICIONADO: Atualiza o displayName no Firebase Auth também.
-        await userCredential.user!.updateDisplayName(newUser.name);
+
+        await user.updateDisplayName(newUser.name);
       }
-      // O AuthGate irá redirecionar automaticamente, não precisamos fazer pop.
+
+      // ALTERADO: Adiciona feedback de sucesso e fecha a tela de registo.
+      // Isto permite que o AuthGate, que está no ecrã anterior, detete
+      // a mudança de estado e redirecione automaticamente.
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text("Conta criada com sucesso! A redirecionar..."),
+          backgroundColor: Colors.green,
+        ),
+      );
+      
+      navigator.pop(); // Fecha o RegisterScreen
+
     } on FirebaseAuthException catch (e) {
       if (!mounted) return;
       _showErrorSnackbar(e.message ?? "Ocorreu um erro desconhecido.");
+    } catch (e) {
+      if (!mounted) return;
+      _showErrorSnackbar("Ocorreu um erro ao criar o perfil: $e");
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -93,13 +108,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
           constraints: const BoxConstraints(maxWidth: 480),
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(24.0),
-            // ALTERADO: Adicionado Form widget.
             child: Form(
               key: _formKey,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // ALTERADO: de TextField para TextFormField com validação.
                   TextFormField(
                     controller: _nameController,
                     decoration: InputDecoration(
@@ -170,3 +183,4 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 }
+

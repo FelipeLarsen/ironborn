@@ -8,12 +8,17 @@ import 'package:ironborn/models/daily_log_model.dart';
 import 'package:ironborn/models/user_model.dart';
 import 'package:ironborn/models/workout_schedule_model.dart';
 import 'package:ironborn/models/workout_template_model.dart';
+import 'package:ironborn/screens/chat_screen.dart'; // NOVO
+import 'package:ironborn/screens/progress_screen.dart';
+import 'package:ironborn/services/chat_service.dart'; // NOVO
 import 'package:ironborn/widgets/responsive_layout.dart';
-import 'package:ironborn/screens/progress_screen.dart'; // NOVO: Importar o ecrã de progresso.
 
 class StudentManagementScreen extends StatefulWidget {
   final UserModel student;
-  const StudentManagementScreen({super.key, required this.student});
+  // NOVO: Precisamos do modelo do treinador para iniciar a conversa.
+  final UserModel trainer;
+  const StudentManagementScreen(
+      {super.key, required this.student, required this.trainer});
 
   @override
   State<StudentManagementScreen> createState() =>
@@ -21,6 +26,7 @@ class StudentManagementScreen extends StatefulWidget {
 }
 
 class _StudentManagementScreenState extends State<StudentManagementScreen> {
+  // ... (todo o seu código initState, fetchData, etc. permanece igual)
   List<WorkoutTemplateModel> _templates = [];
   WorkoutScheduleModel _schedule = WorkoutScheduleModel.empty();
   bool _isLoading = true;
@@ -59,10 +65,9 @@ class _StudentManagementScreenState extends State<StudentManagementScreen> {
         .get();
 
     final templates = snapshot.docs
-        .map((doc) =>
-            WorkoutTemplateModel.fromMap(doc.data(), doc.id))
+        .map((doc) => WorkoutTemplateModel.fromMap(doc.data(), doc.id))
         .toList();
-    
+
     if (mounted) {
       setState(() {
         _templates = templates;
@@ -78,7 +83,8 @@ class _StudentManagementScreenState extends State<StudentManagementScreen> {
 
     if (scheduleDoc.exists && mounted) {
       setState(() {
-        _schedule = WorkoutScheduleModel.fromMap(scheduleDoc.data()!, scheduleDoc.id);
+        _schedule =
+            WorkoutScheduleModel.fromMap(scheduleDoc.data()!, scheduleDoc.id);
       });
     }
   }
@@ -88,7 +94,6 @@ class _StudentManagementScreenState extends State<StudentManagementScreen> {
         .collection('workoutSchedules')
         .doc(widget.student.id);
 
-    // Usa o método copyWith para garantir a imutabilidade antes de salvar.
     await scheduleRef.set(_schedule.copyWith().toMap());
 
     if (mounted) {
@@ -98,6 +103,34 @@ class _StudentManagementScreenState extends State<StudentManagementScreen> {
           backgroundColor: Colors.green,
         ),
       );
+    }
+  }
+
+  // NOVO: Função para iniciar o chat.
+  void _startChat() async {
+    final chatService = ChatService();
+    try {
+      final conversationId =
+          await chatService.getOrCreateConversation(widget.trainer, widget.student);
+
+      if (mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => ChatScreen(
+              conversationId: conversationId,
+              recipientName: widget.student.name,
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint("Erro ao iniciar chat: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Não foi possível iniciar a conversa.")),
+        );
+      }
     }
   }
 
@@ -139,8 +172,8 @@ class _StudentManagementScreenState extends State<StudentManagementScreen> {
             items: items,
             onChanged: (String? newValue) {
               setState(() {
-                // Cria uma cópia do mapa para modificar, mantendo o estado imutável.
-                final newScheduleMap = Map<String, String?>.from(_schedule.weeklySchedule);
+                final newScheduleMap =
+                    Map<String, String?>.from(_schedule.weeklySchedule);
                 newScheduleMap[day] = newValue;
                 _schedule = _schedule.copyWith(weeklySchedule: newScheduleMap);
               });
@@ -162,24 +195,38 @@ class _StudentManagementScreenState extends State<StudentManagementScreen> {
           : ListView(
               padding: const EdgeInsets.all(16.0),
               children: [
-                // NOVO BOTÃO: Para ver o progresso do aluno.
-                ElevatedButton.icon(
-                  icon: const Icon(Icons.show_chart),
-                  label: const Text("Ver Progresso do Aluno"),
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                  ),
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => ProgressScreen(
-                          userId: widget.student.id,
-                          userName: widget.student.name,
+                // ALTERADO: Adicionado um Row para os botões de ação.
+                Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        icon: const Icon(Icons.show_chart),
+                        label: const Text("Ver Progresso"),
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => ProgressScreen(
+                                userId: widget.student.id,
+                                userName: widget.student.name,
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        icon: const Icon(Icons.chat_bubble_outline),
+                        label: const Text("Conversar"),
+                        onPressed: _startChat, // NOVO
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.grey.shade700,
                         ),
                       ),
-                    );
-                  },
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 16),
                 Card(
@@ -228,7 +275,8 @@ class _StudentManagementScreenState extends State<StudentManagementScreen> {
                             builder: (context, snapshot) {
                               if (snapshot.connectionState ==
                                   ConnectionState.waiting) {
-                                return const Center(child: CircularProgressIndicator());
+                                return const Center(
+                                    child: CircularProgressIndicator());
                               }
                               if (!snapshot.hasData ||
                                   snapshot.data!.docs.isEmpty) {
@@ -243,11 +291,12 @@ class _StudentManagementScreenState extends State<StudentManagementScreen> {
                                 physics: const NeverScrollableScrollPhysics(),
                                 itemCount: logs.length,
                                 itemBuilder: (context, index) {
-                                  final log = DailyLogModel.fromSnapshot(logs[index]);
+                                  final log =
+                                      DailyLogModel.fromSnapshot(logs[index]);
                                   final date = log.date.toDate();
                                   final formattedDate =
                                       DateFormat('dd/MM/yyyy').format(date);
-                                  
+
                                   final weightText = log.bodyWeightKg != null
                                       ? "Peso: ${log.bodyWeightKg}kg"
                                       : "Peso não registado";
@@ -262,7 +311,8 @@ class _StudentManagementScreenState extends State<StudentManagementScreen> {
                                         log.workoutCompleted == true
                                             ? "Treino Concluído"
                                             : "Treino Não Concluído",
-                                        style: const TextStyle(fontWeight: FontWeight.bold)),
+                                        style: const TextStyle(
+                                            fontWeight: FontWeight.bold)),
                                     subtitle:
                                         Text("$formattedDate | $weightText"),
                                   );
@@ -278,4 +328,3 @@ class _StudentManagementScreenState extends State<StudentManagementScreen> {
     );
   }
 }
-

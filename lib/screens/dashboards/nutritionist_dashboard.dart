@@ -3,9 +3,11 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import '../../models/user_model.dart';
-import '../patient_management_screen.dart';
-import '../profile_screen.dart';
+import 'package:ironborn/models/user_model.dart';
+import 'package:ironborn/screens/conversations_screen.dart';
+import 'package:ironborn/screens/patient_management_screen.dart';
+import 'package:ironborn/screens/profile_screen.dart';
+import 'package:ironborn/widgets/responsive_layout.dart';
 
 class NutritionistDashboard extends StatefulWidget {
   final UserModel user;
@@ -16,9 +18,36 @@ class NutritionistDashboard extends StatefulWidget {
 }
 
 class _NutritionistDashboardState extends State<NutritionistDashboard> {
+  final int _selectedIndex = 0; // O índice 0 (Pacientes) é a base deste ecrã.
   final _patientCodeController = TextEditingController();
 
+  void _onItemTapped(int index) {
+    // As outras abas navegam para novos ecrãs.
+    switch (index) {
+      case 0:
+        // Já estamos no ecrã de pacientes, não faz nada.
+        break;
+      case 1: // Mensagens
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const ConversationsScreen(),
+          ),
+        );
+        break;
+      case 2: // Perfil
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => ProfileScreen(user: widget.user),
+          ),
+        );
+        break;
+    }
+  }
+
   void _showInviteDialog() {
+    _patientCodeController.clear();
     showDialog(
       context: context,
       builder: (context) {
@@ -53,7 +82,6 @@ class _NutritionistDashboardState extends State<NutritionistDashboard> {
     final messenger = ScaffoldMessenger.of(context);
 
     try {
-      // ALTERADO: Usa widget.user.id em vez de chamar o FirebaseAuth.
       await FirebaseFirestore.instance
           .collection('users')
           .doc(patientId)
@@ -73,28 +101,17 @@ class _NutritionistDashboardState extends State<NutritionistDashboard> {
         ),
       );
     } finally {
-      _patientCodeController.clear();
       navigator.pop(); // Fecha o diálogo
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return ResponsiveLayout(
       appBar: AppBar(
         title: Text('Olá, Nutri ${widget.user.name}!'),
+        automaticallyImplyLeading: false,
         actions: [
-          IconButton(
-            icon: const Icon(Icons.person),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => ProfileScreen(user: widget.user),
-                ),
-              );
-            },
-          ),
           IconButton(
             icon: const Icon(Icons.logout),
             onPressed: () => FirebaseAuth.instance.signOut(),
@@ -122,16 +139,15 @@ class _NutritionistDashboardState extends State<NutritionistDashboard> {
               ),
             ),
             const SizedBox(height: 24),
-            const Text(
-              'Meus Pacientes',
-              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+            Text(
+              'Os meus Pacientes',
+              style: Theme.of(context).textTheme.titleLarge,
             ),
             const SizedBox(height: 16),
             Expanded(
               child: StreamBuilder<QuerySnapshot>(
                 stream: FirebaseFirestore.instance
                     .collection('users')
-                    // ALTERADO: Usa widget.user.id para desacoplar do FirebaseAuth.
                     .where('nutritionistId', isEqualTo: widget.user.id)
                     .snapshots(),
                 builder: (context, snapshot) {
@@ -150,7 +166,6 @@ class _NutritionistDashboardState extends State<NutritionistDashboard> {
                     itemCount: patientDocs.length,
                     itemBuilder: (context, index) {
                       final patientDoc = patientDocs[index];
-                      // ALTERADO: Passa o ID do documento explicitamente para o construtor.
                       final patient = UserModel.fromMap(
                         patientDoc.data() as Map<String, dynamic>,
                         patientDoc.id,
@@ -160,7 +175,7 @@ class _NutritionistDashboardState extends State<NutritionistDashboard> {
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: ListTile(
-                          leading: CircleAvatar(child: Text(patient.name[0])),
+                          leading: CircleAvatar(child: Text(patient.name.isNotEmpty ? patient.name[0] : 'P')),
                           title: Text(patient.name),
                           trailing: const Icon(Icons.chevron_right),
                           onTap: () {
@@ -168,7 +183,11 @@ class _NutritionistDashboardState extends State<NutritionistDashboard> {
                               context,
                               MaterialPageRoute(
                                 builder: (context) =>
-                                    PatientManagementScreen(patient: patient),
+                                    PatientManagementScreen(
+                                      patient: patient,
+                                      // Passa o modelo do nutri para o próximo ecrã.
+                                      nutritionist: widget.user,
+                                    ),
                               ),
                             );
                           },
@@ -182,6 +201,26 @@ class _NutritionistDashboardState extends State<NutritionistDashboard> {
           ],
         ),
       ),
+      bottomNavigationBar: BottomNavigationBar(
+        type: BottomNavigationBarType.fixed,
+        items: const <BottomNavigationBarItem>[
+          BottomNavigationBarItem(
+            icon: Icon(Icons.people_alt_outlined),
+            label: 'Pacientes',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.chat_bubble),
+            label: 'Mensagens',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.person),
+            label: 'Perfil',
+          ),
+        ],
+        currentIndex: _selectedIndex,
+        onTap: _onItemTapped,
+      ),
     );
   }
 }
+

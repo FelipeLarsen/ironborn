@@ -1,14 +1,21 @@
 // ARQUIVO ATUALIZADO: lib/screens/patient_management_screen.dart
 
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import '../models/user_model.dart';
-import '../models/diet_plan_model.dart';
+import 'package:ironborn/models/diet_plan_model.dart';
+import 'package:ironborn/models/user_model.dart';
+import 'package:ironborn/screens/chat_screen.dart';
+import 'package:ironborn/services/chat_service.dart';
 
 class PatientManagementScreen extends StatefulWidget {
   final UserModel patient;
-  const PatientManagementScreen({super.key, required this.patient});
+  final UserModel nutritionist; // NOVO: Recebe o modelo do nutricionista.
+
+  const PatientManagementScreen({
+    super.key,
+    required this.patient,
+    required this.nutritionist,
+  });
 
   @override
   State<PatientManagementScreen> createState() =>
@@ -19,6 +26,9 @@ class _PatientManagementScreenState extends State<PatientManagementScreen> {
   final _formKey = GlobalKey<FormState>();
   DietPlanModel? _dietPlan;
   bool _isLoading = true;
+
+  // NOVO: Futuro para buscar o treinador do paciente, se existir.
+  late Future<UserModel?> _trainerFuture;
 
   // Controllers para os campos principais do plano.
   final _planNameController = TextEditingController();
@@ -33,6 +43,8 @@ class _PatientManagementScreenState extends State<PatientManagementScreen> {
   void initState() {
     super.initState();
     _fetchDietPlan();
+    // NOVO: Inicia a busca pelo treinador do paciente.
+    _trainerFuture = _fetchTrainer();
   }
 
   @override
@@ -45,17 +57,35 @@ class _PatientManagementScreenState extends State<PatientManagementScreen> {
     super.dispose();
   }
 
+  // NOVO: Função para buscar o perfil do treinador associado ao paciente.
+  Future<UserModel?> _fetchTrainer() async {
+    if (widget.patient.trainerId == null || widget.patient.trainerId!.isEmpty) {
+      return null;
+    }
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(widget.patient.trainerId)
+          .get();
+      if (doc.exists) {
+        return UserModel.fromMap(doc.data()!, doc.id);
+      }
+    } catch (e) {
+      debugPrint("Erro ao buscar treinador: $e");
+    }
+    return null;
+  }
+
   Future<void> _fetchDietPlan() async {
     try {
       final planSnapshot = await FirebaseFirestore.instance
           .collection('dietPlans')
-          .where('patientId', isEqualTo: widget.patient.id) // ALTERADO: de uid para id
+          .where('patientId', isEqualTo: widget.patient.id)
           .limit(1)
           .get();
 
       if (planSnapshot.docs.isNotEmpty) {
         final doc = planSnapshot.docs.first;
-        // ALTERADO: Usa o construtor fromMap consistente.
         final plan = DietPlanModel.fromMap(doc.id, doc.data());
         if (mounted) {
           setState(() {
@@ -65,29 +95,27 @@ class _PatientManagementScreenState extends State<PatientManagementScreen> {
             _proteinController.text = plan.protein.toString();
             _carbsController.text = plan.carbs.toString();
             _fatController.text = plan.fat.toString();
-            // Cria uma cópia profunda para edição local.
-            _meals = plan.meals.map((m) => m.copyWith(foods: List.from(m.foods))).toList();
+            _meals = plan.meals
+                .map((m) => m.copyWith(foods: List.from(m.foods)))
+                .toList();
           });
         }
       }
     } catch (e) {
-      print("Erro ao buscar plano alimentar: $e");
+      debugPrint("Erro ao buscar plano alimentar: $e");
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
   }
 
-
   Future<void> _saveDietPlan() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _isLoading = true);
 
-    final nutritionistId = FirebaseAuth.instance.currentUser!.uid;
-    // Cria um novo DietPlanModel com os dados atuais do estado.
     final newPlan = DietPlanModel(
       id: _dietPlan?.id,
-      patientId: widget.patient.id, // ALTERADO: de uid para id
-      nutritionistId: nutritionistId,
+      patientId: widget.patient.id,
+      nutritionistId: widget.nutritionist.id,
       planName: _planNameController.text,
       calories: int.tryParse(_caloriesController.text) ?? 0,
       protein: int.tryParse(_proteinController.text) ?? 0,
@@ -109,16 +137,47 @@ class _PatientManagementScreenState extends State<PatientManagementScreen> {
             content: Text('Plano salvo com sucesso!'),
             backgroundColor: Colors.green),
       );
-      Navigator.pop(context); // Opcional: voltar após salvar
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erro: $e')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Erro: $e')));
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
   }
-  
-  // Funções de manipulação de estado (agora imutáveis)
+
+  // NOVO: Lógica para iniciar o chat
+  void _startChat(UserModel recipient, {UserModel? contextUser}) async {
+    final chatService = ChatService();
+    try {
+      final conversationId = contextUser != null
+          ? await chatService.getOrCreateProfessionalConversation(
+              widget.nutritionist, recipient, contextUser)
+          : await chatService.getOrCreateConversation(
+              widget.nutritionist, recipient);
+
+      if (mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => ChatScreen(
+              conversationId: conversationId,
+              recipientName: recipient.name,
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint("Erro ao iniciar chat: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Não foi possível iniciar a conversa.")),
+        );
+      }
+    }
+  }
+
+  // Funções de manipulação de estado (imutáveis)
   void _addMeal() {
     setState(() {
       _meals.add(const Meal(name: '', time: '', foods: []));
@@ -153,11 +212,13 @@ class _PatientManagementScreenState extends State<PatientManagementScreen> {
     });
   }
 
-  void _updateFoodInMeal(int mealIndex, int foodIndex, {String? description, String? quantity}) {
+  void _updateFoodInMeal(int mealIndex, int foodIndex,
+      {String? description, String? quantity}) {
     setState(() {
       final foodToUpdate = _meals[mealIndex].foods[foodIndex];
-      final updatedFood = foodToUpdate.copyWith(description: description, quantity: quantity);
-      
+      final updatedFood =
+          foodToUpdate.copyWith(description: description, quantity: quantity);
+
       final updatedFoods = List<FoodItem>.from(_meals[mealIndex].foods);
       updatedFoods[foodIndex] = updatedFood;
 
@@ -186,35 +247,74 @@ class _PatientManagementScreenState extends State<PatientManagementScreen> {
               child: ListView(
                 padding: const EdgeInsets.all(16.0),
                 children: [
+                  // NOVO: Botões de chat
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          icon: const Icon(Icons.chat_bubble_outline),
+                          label: const Text("Conversar"),
+                          onPressed: () => _startChat(widget.patient),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: FutureBuilder<UserModel?>(
+                          future: _trainerFuture,
+                          builder: (context, snapshot) {
+                            if (!snapshot.hasData) {
+                              return const SizedBox.shrink();
+                            }
+                            final trainer = snapshot.data!;
+                            return OutlinedButton.icon(
+                              icon: const Icon(Icons.group_add_outlined),
+                              label: Text("Falar com ${trainer.name}"),
+                              onPressed: () => _startChat(trainer, contextUser: widget.patient),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
                   TextFormField(
                       controller: _planNameController,
-                      decoration: const InputDecoration(labelText: 'Nome do Plano'),
-                      validator: (v) => v!.isEmpty ? 'Campo obrigatório' : null),
+                      decoration:
+                          const InputDecoration(labelText: 'Nome do Plano'),
+                      validator: (v) =>
+                          v!.isEmpty ? 'Campo obrigatório' : null),
                   const SizedBox(height: 16),
                   const Text('Metas Diárias',
                       style:
                           TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                   TextFormField(
                       controller: _caloriesController,
-                      decoration: const InputDecoration(labelText: 'Calorias (kcal)'),
+                      decoration:
+                          const InputDecoration(labelText: 'Calorias (kcal)'),
                       keyboardType: TextInputType.number),
                   TextFormField(
                       controller: _proteinController,
-                      decoration: const InputDecoration(labelText: 'Proteínas (g)'),
+                      decoration:
+                          const InputDecoration(labelText: 'Proteínas (g)'),
                       keyboardType: TextInputType.number),
                   TextFormField(
                       controller: _carbsController,
-                      decoration: const InputDecoration(labelText: 'Carboidratos (g)'),
+                      decoration:
+                          const InputDecoration(labelText: 'Carboidratos (g)'),
                       keyboardType: TextInputType.number),
                   TextFormField(
                       controller: _fatController,
-                      decoration: const InputDecoration(labelText: 'Gorduras (g)'),
+                      decoration:
+                          const InputDecoration(labelText: 'Gorduras (g)'),
                       keyboardType: TextInputType.number),
                   const SizedBox(height: 24),
                   const Text('Refeições',
                       style:
                           TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                  ..._meals.asMap().entries.map((entry) => _buildMealCard(entry.key)),
+                  ..._meals
+                      .asMap()
+                      .entries
+                      .map((entry) => _buildMealCard(entry.key)),
                   const SizedBox(height: 16),
                   TextButton.icon(
                     icon: const Icon(Icons.add_circle_outline),
@@ -252,18 +352,20 @@ class _PatientManagementScreenState extends State<PatientManagementScreen> {
                   child: TextFormField(
                     initialValue: meal.time,
                     onChanged: (value) => _updateMeal(mealIndex, time: value),
-                    decoration:
-                        const InputDecoration(labelText: 'Horário (ex: 09:00)'),
+                    decoration: const InputDecoration(
+                        labelText: 'Horário (ex: 09:00)'),
                   ),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+                  icon: const Icon(Icons.delete_outline,
+                      color: Colors.redAccent),
                   onPressed: () => _removeMeal(mealIndex),
                 ),
               ],
             ),
             const SizedBox(height: 16),
-            const Text('Alimentos', style: TextStyle(fontWeight: FontWeight.bold)),
+            const Text('Alimentos',
+                style: TextStyle(fontWeight: FontWeight.bold)),
             ...meal.foods
                 .asMap()
                 .entries
@@ -315,3 +417,4 @@ class _PatientManagementScreenState extends State<PatientManagementScreen> {
     );
   }
 }
+
