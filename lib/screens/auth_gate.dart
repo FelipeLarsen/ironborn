@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:ironborn/screens/create_profile_screen.dart';
 import 'package:ironborn/screens/home_screen.dart';
 import 'package:ironborn/screens/login_screen.dart';
+import 'package:ironborn/services/notification_service.dart'; // NOVO: Import
 
 class AuthGate extends StatelessWidget {
   const AuthGate({super.key});
@@ -13,6 +14,16 @@ class AuthGate extends StatelessWidget {
     return StreamBuilder<User?>(
       stream: FirebaseAuth.instance.authStateChanges(),
       builder: (context, authSnapshot) {
+
+        // NOVO: Lógica para salvar/remover o token
+        if (authSnapshot.hasData && authSnapshot.data != null) {
+          // Utilizador fez login, salva o token
+          NotificationService().saveTokenToDatabase(authSnapshot.data!.uid);
+        } else {
+          // Utilizador fez logout (precisamos do ID antigo, o que é complexo aqui)
+          // A remoção do token será feita no botão de logout.
+        }
+
         if (authSnapshot.connectionState == ConnectionState.waiting) {
           return const Scaffold(
               body: Center(child: CircularProgressIndicator()));
@@ -39,7 +50,7 @@ class AuthGate extends StatelessWidget {
                 profileSnapshot.data!.get('userType') == null) {
               return const CreateProfileScreen();
             }
-
+            
             return const HomeScreen();
           },
         );

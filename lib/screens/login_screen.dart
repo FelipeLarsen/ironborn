@@ -4,7 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:ironborn/screens/register_screen.dart';
-import 'package:ironborn/widgets/noise_background.dart'; // Importa o nosso novo widget de ruído.
+import 'package:ironborn/widgets/noise_background.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -56,10 +56,59 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  Future<void> _resetPassword() async {
+    final emailController = TextEditingController();
+    final email = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Recuperar Senha"),
+        content: TextField(
+          controller: emailController,
+          autofocus: true,
+          keyboardType: TextInputType.emailAddress,
+          decoration: const InputDecoration(hintText: "Insira o seu e-mail"),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Cancelar"),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, emailController.text.trim()),
+            child: const Text("Enviar"),
+          ),
+        ],
+      ),
+    );
+
+    if (email == null || email.isEmpty) {
+      return;
+    }
+
+    setState(() => _isLoading = true);
+    try {
+      await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
+      _showSnackbar("E-mail de recuperação enviado para $email. Verifique a sua caixa de entrada.");
+    } on FirebaseAuthException catch (e) {
+      _showErrorSnackbar(e.message ?? "Ocorreu um erro ao enviar o e-mail.");
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
   void _navigateToRegisterScreen() {
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) => const RegisterScreen(),
+      ),
+    );
+  }
+  
+  void _showSnackbar(String message) {
+     ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.green,
       ),
     );
   }
@@ -85,10 +134,7 @@ class _LoginScreenState extends State<LoginScreen> {
     return Scaffold(
       body: Stack(
         children: [
-          // Camada 1: O efeito de ruído no fundo.
-          const NoiseBackground(opacity: 0.2),
-
-          // Camada 2: O conteúdo do ecrã de login.
+          const NoiseBackground(opacity: 0.05),
           Center(
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 480),
@@ -133,7 +179,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                         validator: (value) => value!.isEmpty ? 'Por favor, insira a sua senha.' : null,
                       ),
-                      const SizedBox(height: 32),
+                      const SizedBox(height: 24), // Espaçamento aumentado
                       _isLoading
                           ? const Center(child: CircularProgressIndicator())
                           : ElevatedButton(
@@ -150,14 +196,33 @@ class _LoginScreenState extends State<LoginScreen> {
                                 style: TextStyle(fontSize: 18, color: Colors.white),
                               ),
                             ),
-                      const SizedBox(height: 16),
-                      TextButton(
-                        onPressed: _isLoading ? null : _navigateToRegisterScreen,
-                        child: const Text(
-                          'Não tem uma conta? Cadastre-se',
-                          style: TextStyle(color: Colors.deepOrangeAccent),
-                        ),
-                      ),
+                      const SizedBox(height: 24), // Espaçamento aumentado
+
+                      // ALTERADO: A estrutura dos botões secundários foi refeita.
+                      Column(
+                        children: [
+                          TextButton(
+                            onPressed: _isLoading ? null : _resetPassword,
+                            child: const Text(
+                              "Esqueci a minha senha",
+                              style: TextStyle(color: Colors.white70),
+                            ),
+                          ),
+                          const Divider(
+                            color: Colors.white24,
+                            thickness: 1,
+                            indent: 40,
+                            endIndent: 40,
+                          ),
+                           TextButton(
+                            onPressed: _isLoading ? null : _navigateToRegisterScreen,
+                            child: const Text(
+                              'Não tem uma conta? Cadastre-se',
+                              style: TextStyle(color: Colors.deepOrangeAccent),
+                            ),
+                          ),
+                        ],
+                      )
                     ],
                   ),
                 ),

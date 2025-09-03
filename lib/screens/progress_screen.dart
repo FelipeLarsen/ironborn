@@ -1,4 +1,4 @@
-// ARQUIVO ATUALIZADO: lib/screens/progress_screen.dart
+// ARQUIVO ATUALIZADO E VALIDADO PARA A VERSÃO 1.1.0 DO FL_CHART
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fl_chart/fl_chart.dart';
@@ -31,18 +31,13 @@ class _ProgressScreenState extends State<ProgressScreen> {
   }
 
   Future<List<DailyLogModel>> _fetchWeightLogs() async {
-    // ALTERADO: Simplificámos a consulta do Firestore.
     final snapshot = await FirebaseFirestore.instance
         .collection('dailyLogs')
         .where('studentId', isEqualTo: widget.userId)
-        // REMOVIDO: .where('bodyWeightKg', isNotEqualTo: null)
         .orderBy('date')
         .get();
 
     final allLogs = snapshot.docs.map((doc) => DailyLogModel.fromSnapshot(doc)).toList();
-
-    // ADICIONADO: O filtro agora é feito no lado do cliente (em Dart).
-    // Isto torna a consulta mais simples e não requer um índice composto.
     final logsWithWeight = allLogs.where((log) => log.bodyWeightKg != null).toList();
 
     return logsWithWeight;
@@ -61,7 +56,6 @@ class _ProgressScreenState extends State<ProgressScreen> {
             return const Center(child: CircularProgressIndicator());
           }
           if (snapshot.hasError) {
-            // Adicionamos o print do erro para ajudar a depurar no futuro.
             debugPrint("Erro no FutureBuilder do gráfico: ${snapshot.error}");
             return const Center(child: Text("Erro ao carregar os dados."));
           }
@@ -79,7 +73,6 @@ class _ProgressScreenState extends State<ProgressScreen> {
 
           final logs = snapshot.data!;
           final spots = logs.asMap().entries.map((entry) {
-            // X: índice (0, 1, 2...), Y: peso
             return FlSpot(entry.key.toDouble(), entry.value.bodyWeightKg!);
           }).toList();
 
@@ -129,28 +122,32 @@ class _ProgressScreenState extends State<ProgressScreen> {
             reservedSize: 30,
             interval: 1,
             getTitlesWidget: (value, meta) {
-              int index = value.toInt();
+              final int index = value.toInt();
+              Widget text;
               if (index >= 0 && index < logs.length) {
-                // Lógica melhorada para mostrar mais datas sem sobreposição.
                 final int total = logs.length;
-                int interval = (total / 4).ceil(); // Mostra cerca de 4-5 datas.
+                final int interval = (total / 4).ceil();
                 if (index % interval == 0 || index == total - 1) {
                   final date = logs[index].date.toDate();
-                  return SideTitleWidget(
-                    axisSide: meta.axisSide,
-                    space: 8.0,
-                    child: Text(
-                      DateFormat('dd/MM').format(date),
-                      style: const TextStyle(
-                        color: Colors.white70,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12,
-                      ),
+                  text = Text(
+                    DateFormat('dd/MM').format(date),
+                    style: const TextStyle(
+                      color: Colors.white70,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
                     ),
                   );
+                } else {
+                  text = const SizedBox.shrink();
                 }
+              } else {
+                text = const SizedBox.shrink();
               }
-              return const SizedBox.shrink();
+              return SideTitleWidget(
+                axisSide: meta.axisSide,
+                space: 8.0,
+                child: text,
+              );
             },
           ),
         ),
@@ -159,18 +156,24 @@ class _ProgressScreenState extends State<ProgressScreen> {
             showTitles: true,
             reservedSize: 42,
             getTitlesWidget: (value, meta) {
-              // Mostra apenas alguns valores no eixo Y para não poluir.
+              Widget text;
               if (value == meta.min || value == meta.max) {
-                 return const SizedBox.shrink();
+                text = const SizedBox.shrink();
+              } else {
+                text = Text(
+                  '${value.toInt()}kg',
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12,
+                  ),
+                  textAlign: TextAlign.left,
+                );
               }
-              return Text(
-                '${value.toInt()}kg',
-                style: const TextStyle(
-                  color: Colors.white70,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 12,
-                ),
-                textAlign: TextAlign.left,
+              return SideTitleWidget(
+                axisSide: meta.axisSide,
+                space: 8.0,
+                child: text,
               );
             },
           ),
@@ -186,13 +189,22 @@ class _ProgressScreenState extends State<ProgressScreen> {
         LineChartBarData(
           spots: spots,
           isCurved: true,
-          color: Colors.deepOrange,
+          gradient: const LinearGradient(
+            colors: [Colors.deepOrange, Colors.orangeAccent],
+          ),
           barWidth: 5,
           isStrokeCapRound: true,
           dotData: const FlDotData(show: false),
           belowBarData: BarAreaData(
             show: true,
-            color: Colors.deepOrange.withOpacity(0.3),
+            gradient: LinearGradient(
+              colors: [
+                Colors.deepOrange.withOpacity(0.3),
+                Colors.orangeAccent.withOpacity(0.0),
+              ],
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+            ),
           ),
         ),
       ],
