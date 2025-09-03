@@ -19,17 +19,14 @@ class TrainerDashboard extends StatefulWidget {
 }
 
 class _TrainerDashboardState extends State<TrainerDashboard> {
-  // O índice 0 (Alunos) é a base deste ecrã.
   final int _selectedIndex = 0;
   final _inviteCodeController = TextEditingController();
 
   void _onItemTapped(int index) {
-    // As outras abas navegam para novos ecrãs.
     switch (index) {
       case 0:
-        // Já estamos no ecrã de alunos, não faz nada.
         break;
-      case 1: // Modelos
+      case 1:
         Navigator.push(
           context,
           MaterialPageRoute(
@@ -38,7 +35,7 @@ class _TrainerDashboardState extends State<TrainerDashboard> {
           ),
         );
         break;
-      case 2: // Mensagens
+      case 2:
         Navigator.push(
           context,
           MaterialPageRoute(
@@ -46,7 +43,7 @@ class _TrainerDashboardState extends State<TrainerDashboard> {
           ),
         );
         break;
-      case 3: // Perfil
+      case 3:
         Navigator.push(
           context,
           MaterialPageRoute(
@@ -136,108 +133,118 @@ class _TrainerDashboardState extends State<TrainerDashboard> {
           ),
         ],
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            ElevatedButton.icon(
-              onPressed: _showInviteDialog,
-              icon: const Icon(Icons.person_add),
-              label: const Text('Convidar Aluno'),
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                backgroundColor: Colors.deepOrange,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
+      // ALTERADO: O body agora tem um layout mais estruturado.
+      body: CustomScrollView(
+        slivers: [
+          SliverPadding(
+            padding: const EdgeInsets.all(16.0),
+            sliver: SliverToBoxAdapter(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                   ElevatedButton.icon(
+                    onPressed: _showInviteDialog,
+                    icon: const Icon(Icons.person_add),
+                    label: const Text('Convidar Aluno'),
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      backgroundColor: Colors.deepOrange,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  Text(
+                    'Os meus Alunos',
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 24),
-            Text(
-              'Os meus Alunos',
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-            const SizedBox(height: 16),
-            Expanded(
-              child: StreamBuilder<QuerySnapshot>(
-                stream: FirebaseFirestore.instance
-                    .collection('users')
-                    .where('trainerId', isEqualTo: widget.user.id)
-                    .snapshots(),
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
-                  if (snapshot.hasError) {
-                    return const Center(child: Text("Ocorreu um erro."));
-                  }
-                  if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                    return const Center(child: Text("Ainda não tem alunos."));
-                  }
+          ),
+          SliverPadding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+            sliver: StreamBuilder<QuerySnapshot>(
+              stream: FirebaseFirestore.instance
+                  .collection('users')
+                  .where('trainerId', isEqualTo: widget.user.id)
+                  .snapshots(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const SliverToBoxAdapter(child: Center(child: CircularProgressIndicator()));
+                }
+                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                  return const SliverToBoxAdapter(
+                    child: Center(heightFactor: 5, child: Text("Ainda não tem alunos."))
+                  );
+                }
 
-                  final students = snapshot.data!.docs;
+                final students = snapshot.data!.docs;
+                // ALTERADO: A lista agora é uma SliverGrid para o layout em cartões.
+                return SliverGrid.builder(
+                   gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                    maxCrossAxisExtent: 400,
+                    childAspectRatio: 4 / 1, // Proporção mais horizontal
+                    crossAxisSpacing: 16,
+                    mainAxisSpacing: 16,
+                  ),
+                  itemCount: students.length,
+                  itemBuilder: (context, index) {
+                    final studentData = students[index].data() as Map<String, dynamic>;
+                    final student = UserModel.fromMap(studentData, students[index].id);
 
-                  return ListView.builder(
-                    itemCount: students.length,
-                    itemBuilder: (context, index) {
-                      final studentData =
-                          students[index].data() as Map<String, dynamic>;
-                      final student =
-                          UserModel.fromMap(studentData, students[index].id);
-
-                      return Card(
-                        margin: const EdgeInsets.symmetric(vertical: 8.0),
-                        child: ListTile(
-                          leading: CircleAvatar(
-                            child: Text(
-                                student.name.isNotEmpty ? student.name[0] : '?'),
-                          ),
-                          title: Text(student.name),
-                          subtitle:
-                              const Text("Ver progresso e gerir treinos"),
-                          trailing: const Icon(Icons.chevron_right),
-                          onTap: () {
-                            Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (context) => StudentManagementScreen(
-                                  student: student,
-                                  // NOVO: Passa o modelo do treinador para o próximo ecrã.
-                                  trainer: widget.user,
+                    return Card(
+                      child: InkWell(
+                        onTap: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (context) => StudentManagementScreen(
+                                student: student,
+                                trainer: widget.user,
+                              ),
+                            ),
+                          );
+                        },
+                        borderRadius: BorderRadius.circular(12),
+                        child: Padding(
+                           padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                          child: Row(
+                            children: [
+                              CircleAvatar(
+                                child: Text(student.name.isNotEmpty ? student.name[0] : '?'),
+                              ),
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(student.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+                                    const Text("Gerir treinos e progresso", style: TextStyle(fontSize: 12, color: Colors.grey)),
+                                  ],
                                 ),
                               ),
-                            );
-                          },
+                              const Icon(Icons.chevron_right, color: Colors.grey),
+                            ],
+                          ),
                         ),
-                      );
-                    },
-                  );
-                },
-              ),
+                      ),
+                    );
+                  },
+                );
+              },
             ),
-          ],
-        ),
+          ),
+        ],
       ),
       bottomNavigationBar: BottomNavigationBar(
-        type: BottomNavigationBarType.fixed, // Garante que todos os itens aparecem
+        type: BottomNavigationBarType.fixed,
         items: const <BottomNavigationBarItem>[
-          BottomNavigationBarItem(
-            icon: Icon(Icons.people),
-            label: 'Alunos',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.fitness_center),
-            label: 'Modelos',
-          ),
-          // NOVO ITEM
-          BottomNavigationBarItem(
-            icon: Icon(Icons.chat_bubble),
-            label: 'Mensagens',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person),
-            label: 'Perfil',
-          ),
+          BottomNavigationBarItem(icon: Icon(Icons.people), label: 'Alunos'),
+          BottomNavigationBarItem(icon: Icon(Icons.fitness_center), label: 'Modelos'),
+          BottomNavigationBarItem(icon: Icon(Icons.chat_bubble), label: 'Mensagens'),
+          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Perfil'),
         ],
         currentIndex: _selectedIndex,
         onTap: _onItemTapped,

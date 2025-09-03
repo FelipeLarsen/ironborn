@@ -18,16 +18,14 @@ class NutritionistDashboard extends StatefulWidget {
 }
 
 class _NutritionistDashboardState extends State<NutritionistDashboard> {
-  final int _selectedIndex = 0; // O índice 0 (Pacientes) é a base deste ecrã.
+  final int _selectedIndex = 0;
   final _patientCodeController = TextEditingController();
 
   void _onItemTapped(int index) {
-    // As outras abas navegam para novos ecrãs.
     switch (index) {
       case 0:
-        // Já estamos no ecrã de pacientes, não faz nada.
         break;
-      case 1: // Mensagens
+      case 1:
         Navigator.push(
           context,
           MaterialPageRoute(
@@ -35,7 +33,7 @@ class _NutritionistDashboardState extends State<NutritionistDashboard> {
           ),
         );
         break;
-      case 2: // Perfil
+      case 2:
         Navigator.push(
           context,
           MaterialPageRoute(
@@ -101,7 +99,7 @@ class _NutritionistDashboardState extends State<NutritionistDashboard> {
         ),
       );
     } finally {
-      navigator.pop(); // Fecha o diálogo
+      navigator.pop();
     }
   }
 
@@ -118,104 +116,119 @@ class _NutritionistDashboardState extends State<NutritionistDashboard> {
           ),
         ],
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            ElevatedButton.icon(
-              icon: const Icon(Icons.person_add, color: Colors.white),
-              label: const Text(
-                'Convidar Paciente',
-                style: TextStyle(color: Colors.white),
-              ),
-              onPressed: _showInviteDialog,
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                backgroundColor: Colors.deepOrange,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
+      body: CustomScrollView(
+        slivers: [
+          SliverPadding(
+            padding: const EdgeInsets.all(16.0),
+            sliver: SliverToBoxAdapter(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  ElevatedButton.icon(
+                    icon: const Icon(Icons.person_add, color: Colors.white),
+                    label: const Text(
+                      'Convidar Paciente',
+                      style: TextStyle(color: Colors.white),
+                    ),
+                    onPressed: _showInviteDialog,
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      backgroundColor: Colors.deepOrange,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  Text(
+                    'Os meus Pacientes',
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 24),
-            Text(
-              'Os meus Pacientes',
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-            const SizedBox(height: 16),
-            Expanded(
-              child: StreamBuilder<QuerySnapshot>(
-                stream: FirebaseFirestore.instance
-                    .collection('users')
-                    .where('nutritionistId', isEqualTo: widget.user.id)
-                    .snapshots(),
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
-                  if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                    return const Center(
-                      child: Text('Ainda não tem pacientes.'),
-                    );
-                  }
-
-                  final patientDocs = snapshot.data!.docs;
-
-                  return ListView.builder(
-                    itemCount: patientDocs.length,
-                    itemBuilder: (context, index) {
-                      final patientDoc = patientDocs[index];
-                      final patient = UserModel.fromMap(
-                        patientDoc.data() as Map<String, dynamic>,
-                        patientDoc.id,
-                      );
-                      return Card(
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: ListTile(
-                          leading: CircleAvatar(child: Text(patient.name.isNotEmpty ? patient.name[0] : 'P')),
-                          title: Text(patient.name),
-                          trailing: const Icon(Icons.chevron_right),
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) =>
-                                    PatientManagementScreen(
-                                      patient: patient,
-                                      // Passa o modelo do nutri para o próximo ecrã.
-                                      nutritionist: widget.user,
-                                    ),
-                              ),
-                            );
-                          },
-                        ),
-                      );
-                    },
+          ),
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(16.0, 0, 16.0, 16.0),
+            sliver: StreamBuilder<QuerySnapshot>(
+              stream: FirebaseFirestore.instance
+                  .collection('users')
+                  .where('nutritionistId', isEqualTo: widget.user.id)
+                  .snapshots(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const SliverToBoxAdapter(child: Center(child: CircularProgressIndicator()));
+                }
+                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                  return const SliverToBoxAdapter(
+                    child: Center(heightFactor: 5, child: Text("Ainda não tem pacientes.")),
                   );
-                },
-              ),
+                }
+
+                final patientDocs = snapshot.data!.docs;
+                return SliverGrid.builder(
+                   gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                    maxCrossAxisExtent: 400,
+                    childAspectRatio: 4 / 1,
+                    crossAxisSpacing: 16,
+                    mainAxisSpacing: 16,
+                  ),
+                  itemCount: patientDocs.length,
+                  itemBuilder: (context, index) {
+                    final patientDoc = patientDocs[index];
+                    final patient = UserModel.fromMap(
+                      patientDoc.data() as Map<String, dynamic>,
+                      patientDoc.id,
+                    );
+                    return Card(
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(12),
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => PatientManagementScreen(
+                                patient: patient,
+                                nutritionist: widget.user,
+                              ),
+                            ),
+                          );
+                        },
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                          child: Row(
+                            children: [
+                               CircleAvatar(child: Text(patient.name.isNotEmpty ? patient.name[0] : 'P')),
+                               const SizedBox(width: 16),
+                               Expanded(
+                                 child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                   children: [
+                                     Text(patient.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+                                     const Text("Gerir plano alimentar", style: TextStyle(fontSize: 12, color: Colors.grey)),
+                                   ],
+                                 ),
+                               ),
+                               const Icon(Icons.chevron_right, color: Colors.grey),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                );
+              },
             ),
-          ],
-        ),
+          ),
+        ],
       ),
       bottomNavigationBar: BottomNavigationBar(
         type: BottomNavigationBarType.fixed,
         items: const <BottomNavigationBarItem>[
-          BottomNavigationBarItem(
-            icon: Icon(Icons.people_alt_outlined),
-            label: 'Pacientes',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.chat_bubble),
-            label: 'Mensagens',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person),
-            label: 'Perfil',
-          ),
+          BottomNavigationBarItem(icon: Icon(Icons.people_alt_outlined), label: 'Pacientes'),
+          BottomNavigationBarItem(icon: Icon(Icons.chat_bubble), label: 'Mensagens'),
+          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Perfil'),
         ],
         currentIndex: _selectedIndex,
         onTap: _onItemTapped,
