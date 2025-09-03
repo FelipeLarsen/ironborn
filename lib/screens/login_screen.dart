@@ -2,8 +2,9 @@
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart'; // Import necessário
+import 'package:google_fonts/google_fonts.dart';
 import 'package:ironborn/screens/register_screen.dart';
+import 'package:ironborn/widgets/noise_background.dart'; // Importa o nosso novo widget de ruído.
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -43,7 +44,7 @@ class _LoginScreenState extends State<LoginScreen> {
           errorMessage = 'A senha está incorreta. Por favor, tente novamente.';
           break;
         case 'invalid-credential':
-           errorMessage = 'As credenciais estão incorretas. Verifique o e-mail и a senha.';
+           errorMessage = 'As credenciais estão incorretas. Verifique o e-mail e a senha.';
            break;
         default:
           errorMessage = 'Ocorreu um erro. Verifique a sua conexão.';
@@ -82,82 +83,88 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 480),
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24.0),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // ALTERADO: A fonte dos textos do logo foi alterada para Protest Strike.
-                  Text(
-                    'IRONBORN',
-                    textAlign: TextAlign.center,
-                    style: GoogleFonts.protestStrike( // Utiliza a nova fonte
-                      fontSize: 64, // Ajuste de tamanho para a nova fonte
-                      letterSpacing: 5,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.orange,
-                    ),
-                  ),
-                  const SizedBox(height: 48),
-                  TextFormField(
-                    controller: _emailController,
-                    keyboardType: TextInputType.emailAddress,
-                    decoration: InputDecoration(
-                      labelText: 'E-mail',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
+      body: Stack(
+        children: [
+          // Camada 1: O efeito de ruído no fundo.
+          const NoiseBackground(opacity: 0.2),
+
+          // Camada 2: O conteúdo do ecrã de login.
+          Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 480),
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(24.0),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text(
+                        'IRONBORN',
+                        textAlign: TextAlign.center,
+                        style: GoogleFonts.protestStrike(
+                          fontSize: 64,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.deepOrange,
+                        ),
                       ),
-                    ),
-                    validator: (value) => value!.isEmpty ? 'Por favor, insira o seu e-mail.' : null,
-                  ),
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    controller: _passwordController,
-                    obscureText: true,
-                    decoration: InputDecoration(
-                      labelText: 'Senha',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    validator: (value) => value!.isEmpty ? 'Por favor, insira a sua senha.' : null,
-                  ),
-                  const SizedBox(height: 32),
-                  _isLoading
-                      ? const Center(child: CircularProgressIndicator())
-                      : ElevatedButton(
-                          onPressed: _signIn,
-                          style: ElevatedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            backgroundColor: Colors.deepOrange,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                          child: const Text(
-                            'Entrar',
-                            style: TextStyle(fontSize: 18, color: Colors.white),
+                      const SizedBox(height: 48),
+                      TextFormField(
+                        controller: _emailController,
+                        keyboardType: TextInputType.emailAddress,
+                        decoration: InputDecoration(
+                          labelText: 'E-mail',
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
                           ),
                         ),
-                  const SizedBox(height: 16),
-                  TextButton(
-                    onPressed: _isLoading ? null : _navigateToRegisterScreen,
-                    child: const Text(
-                      'Não tem uma conta? Cadastre-se',
-                      style: TextStyle(color: Colors.deepOrangeAccent),
-                    ),
+                        validator: (value) => value!.isEmpty ? 'Por favor, insira o seu e-mail.' : null,
+                      ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: _passwordController,
+                        obscureText: true,
+                        decoration: InputDecoration(
+                          labelText: 'Senha',
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        validator: (value) => value!.isEmpty ? 'Por favor, insira a sua senha.' : null,
+                      ),
+                      const SizedBox(height: 32),
+                      _isLoading
+                          ? const Center(child: CircularProgressIndicator())
+                          : ElevatedButton(
+                              onPressed: _signIn,
+                              style: ElevatedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(vertical: 16),
+                                backgroundColor: Colors.deepOrange,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                              child: const Text(
+                                'Entrar',
+                                style: TextStyle(fontSize: 18, color: Colors.white),
+                              ),
+                            ),
+                      const SizedBox(height: 16),
+                      TextButton(
+                        onPressed: _isLoading ? null : _navigateToRegisterScreen,
+                        child: const Text(
+                          'Não tem uma conta? Cadastre-se',
+                          style: TextStyle(color: Colors.deepOrangeAccent),
+                        ),
+                      ),
+                    ],
                   ),
-                ],
+                ),
               ),
             ),
           ),
-        ),
+        ],
       ),
     );
   }
