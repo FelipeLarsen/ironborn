@@ -2,8 +2,8 @@
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:ironborn/screens/settings_screen.dart'; // NOVO: Importar o ecrã de definições.
-import '../models/user_model.dart';
+import 'package:ironborn/models/user_model.dart';
+import 'package:ironborn/screens/settings_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   final UserModel user;
@@ -14,20 +14,32 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
+  // Controllers para os campos
   late final TextEditingController _nameController;
-  late String _currentName;
+  late final TextEditingController _photoUrlController;
+  late final TextEditingController _bioController;
+  late final TextEditingController _specsController;
+
+  late UserModel _currentUser; // Estado local para refletir as mudanças
   bool _isLoading = false;
 
   @override
   void initState() {
     super.initState();
-    _currentName = widget.user.name;
-    _nameController = TextEditingController(text: _currentName);
+    _currentUser = widget.user;
+    _nameController = TextEditingController(text: _currentUser.name);
+    _photoUrlController = TextEditingController(text: _currentUser.photoUrl);
+    _bioController = TextEditingController(text: _currentUser.bio);
+    // Junta a lista de especializações numa única string para o campo de texto.
+    _specsController = TextEditingController(text: _currentUser.specializations?.join(', '));
   }
 
   @override
   void dispose() {
     _nameController.dispose();
+    _photoUrlController.dispose();
+    _bioController.dispose();
+    _specsController.dispose();
     super.dispose();
   }
 
@@ -40,22 +52,35 @@ class _ProfileScreenState extends State<ProfileScreen> {
       return;
     }
 
-    if (newName == _currentName) {
-      return;
-    }
-
     setState(() => _isLoading = true);
 
+    // Converte a string de especializações de volta para uma lista.
+    final newSpecs = _specsController.text.split(',').map((s) => s.trim()).where((s) => s.isNotEmpty).toList();
+
+    // Cria um mapa apenas com os dados a serem atualizados.
+    final Map<String, dynamic> dataToUpdate = {
+      'name': newName,
+      'photoUrl': _photoUrlController.text.trim(),
+      'bio': _bioController.text.trim(),
+      'specializations': newSpecs,
+    };
+    
     try {
       await FirebaseFirestore.instance
           .collection('users')
-          .doc(widget.user.id)
-          .update({'name': newName});
+          .doc(_currentUser.id)
+          .update(dataToUpdate);
 
       if (!mounted) return;
 
+      // Atualiza o estado local com os novos dados.
       setState(() {
-        _currentName = newName;
+        _currentUser = _currentUser.copyWith(
+          name: newName,
+          photoUrl: _photoUrlController.text.trim(),
+          bio: _bioController.text.trim(),
+          specializations: newSpecs,
+        );
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -65,7 +90,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
       );
     } catch (e) {
       if (!mounted) return;
-      _nameController.text = _currentName;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Erro ao atualizar o perfil: $e')),
       );
@@ -76,10 +100,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isProfessional = _currentUser.userType != UserType.aluno;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('O meu Perfil'),
-        // NOVO: Adiciona um botão de definições na AppBar.
         actions: [
           IconButton(
             icon: const Icon(Icons.settings),
@@ -96,6 +121,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
       body: ListView(
         padding: const EdgeInsets.all(16.0),
         children: [
+          // Secção de Avatar e Nome
+          Center(
+            child: CircleAvatar(
+              radius: 50,
+              backgroundImage: _currentUser.photoUrl != null && _currentUser.photoUrl!.isNotEmpty
+                  ? NetworkImage(_currentUser.photoUrl!)
+                  : null,
+              child: _currentUser.photoUrl == null || _currentUser.photoUrl!.isEmpty
+                  ? const Icon(Icons.person, size: 50)
+                  : null,
+            ),
+          ),
+          const SizedBox(height: 16),
           TextFormField(
             controller: _nameController,
             decoration: const InputDecoration(
@@ -107,14 +145,47 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ListTile(
             leading: const Icon(Icons.email),
             title: const Text('E-mail'),
-            subtitle: Text(widget.user.email),
+            subtitle: Text(_currentUser.email),
           ),
           ListTile(
             leading: const Icon(Icons.badge),
             title: const Text('Tipo de Perfil'),
-            subtitle: Text(widget.user.userType.name[0].toUpperCase() +
-                widget.user.userType.name.substring(1)),
+            subtitle: Text(_currentUser.userType.name[0].toUpperCase() +
+                _currentUser.userType.name.substring(1)),
           ),
+
+          // NOVO: Secção visível apenas para profissionais
+          if (isProfessional) ...[
+            const Divider(height: 32),
+            const Text("Perfil Público", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 16),
+             TextFormField(
+              controller: _photoUrlController,
+              decoration: const InputDecoration(
+                labelText: 'URL da Foto de Perfil',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _bioController,
+              maxLines: 3,
+              decoration: const InputDecoration(
+                labelText: 'Biografia / Sobre Mim',
+                border: OutlineInputBorder(),
+              ),
+            ),
+             const SizedBox(height: 16),
+            TextFormField(
+              controller: _specsController,
+              decoration: const InputDecoration(
+                labelText: 'Especializações (separadas por vírgula)',
+                border: OutlineInputBorder(),
+                hintText: 'ex: Perda de peso, Hipertrofia, Nutrição desportiva',
+              ),
+            ),
+          ],
+          
           const SizedBox(height: 32),
           _isLoading
               ? const Center(child: CircularProgressIndicator())
@@ -130,3 +201,4 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 }
+

@@ -1,17 +1,15 @@
 // ARQUIVO ATUALIZADO: lib/models/user_model.dart
 
-// NOVO: Enum para garantir a segurança de tipos do perfil de usuário.
 enum UserType {
   aluno,
   treinador,
   nutricionista;
 
-  // Helper para converter de/para String de forma segura.
   factory UserType.fromString(String? type) {
     if (type == null) return UserType.aluno;
     return UserType.values.firstWhere(
       (e) => e.name == type,
-      orElse: () => UserType.aluno, // Valor padrão seguro
+      orElse: () => UserType.aluno,
     );
   }
 }
@@ -20,11 +18,15 @@ class UserModel {
   final String id;
   final String name;
   final String email;
-  final UserType userType; // ALTERADO: de String para o enum UserType
+  final UserType userType;
   final String? trainerId;
   final String? nutritionistId;
 
-  // ADICIONADO: construtor const
+  // NOVOS CAMPOS PARA O PERFIL PÚBLICO DOS PROFISSIONAIS
+  final String? photoUrl;
+  final String? bio;
+  final List<String>? specializations;
+
   const UserModel({
     required this.id,
     required this.name,
@@ -32,9 +34,11 @@ class UserModel {
     required this.userType,
     this.trainerId,
     this.nutritionistId,
+    this.photoUrl, // NOVO
+    this.bio, // NOVO
+    this.specializations, // NOVO
   });
 
-  // ADICIONADO: Método copyWith para criar cópias modificadas de forma imutável.
   UserModel copyWith({
     String? id,
     String? name,
@@ -42,6 +46,9 @@ class UserModel {
     UserType? userType,
     String? trainerId,
     String? nutritionistId,
+    String? photoUrl,
+    String? bio,
+    List<String>? specializations,
   }) {
     return UserModel(
       id: id ?? this.id,
@@ -50,6 +57,9 @@ class UserModel {
       userType: userType ?? this.userType,
       trainerId: trainerId ?? this.trainerId,
       nutritionistId: nutritionistId ?? this.nutritionistId,
+      photoUrl: photoUrl ?? this.photoUrl,
+      bio: bio ?? this.bio,
+      specializations: specializations ?? this.specializations,
     );
   }
 
@@ -58,10 +68,13 @@ class UserModel {
       id: documentId,
       name: map['name'] ?? '',
       email: map['email'] ?? '',
-      // ALTERADO: Converte a string do Firestore para o enum.
       userType: UserType.fromString(map['userType']),
       trainerId: map['trainerId'],
       nutritionistId: map['nutritionistId'],
+      photoUrl: map['photoUrl'],
+      bio: map['bio'],
+      // Converte a lista do Firestore (List<dynamic>) para List<String> de forma segura.
+      specializations: map['specializations'] != null ? List<String>.from(map['specializations']) : null,
     );
   }
 
@@ -69,10 +82,12 @@ class UserModel {
     return {
       'name': name,
       'email': email,
-      // ALTERADO: Converte o enum para string antes de salvar.
       'userType': userType.name,
       'trainerId': trainerId,
       'nutritionistId': nutritionistId,
+      'photoUrl': photoUrl,
+      'bio': bio,
+      'specializations': specializations,
     };
   }
 }

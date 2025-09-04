@@ -12,6 +12,7 @@ import 'package:ironborn/models/workout_template_model.dart';
 import 'package:ironborn/screens/chat_screen.dart';
 import 'package:ironborn/screens/daily_workout_screen.dart';
 import 'package:ironborn/screens/diet_plan_screen.dart';
+import 'package:ironborn/screens/find_professionals_screen.dart'; // NOVO: Importar
 import 'package:ironborn/screens/profile_screen.dart';
 import 'package:ironborn/screens/progress_screen.dart';
 import 'package:ironborn/services/chat_service.dart';
@@ -41,7 +42,6 @@ class _StudentDashboardState extends State<StudentDashboard> {
     _professionalsFuture = Future.wait([trainerFuture, nutritionistFuture]);
   }
 
-  // ... (funções de lógica permanecem iguais)
   Future<UserModel?> _fetchProfessional(String? professionalId) async {
     if (professionalId == null || professionalId.isEmpty) return null;
     try {
@@ -75,7 +75,7 @@ class _StudentDashboardState extends State<StudentDashboard> {
       }
     }
   }
-  
+
   Future<void> _saveWeight(String weightText) async {
     final formattedText = weightText.trim().replaceAll(',', '.');
     final weight = double.tryParse(formattedText);
@@ -174,7 +174,6 @@ class _StudentDashboardState extends State<StudentDashboard> {
     }
   }
 
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -200,7 +199,7 @@ class _StudentDashboardState extends State<StudentDashboard> {
             crossAxisSpacing: 16,
             mainAxisSpacing: 16,
           ),
-          itemCount: 6,
+          itemCount: 8,
           itemBuilder: (context, index) {
             switch (index) {
               case 0:
@@ -252,7 +251,6 @@ class _StudentDashboardState extends State<StudentDashboard> {
                   }
                 );
               case 4:
-                // ALTERADO: O cartão de registo agora usa a nova lógica com pop-up.
                 return _DashboardGridCard(
                   icon: Icons.edit,
                   title: 'Registo Diário',
@@ -261,6 +259,20 @@ class _StudentDashboardState extends State<StudentDashboard> {
                 );
               case 5:
                 return _InviteCodeCard(inviteCode: widget.user.id);
+              case 6:
+                return _DashboardGridCard(
+                  icon: Icons.search,
+                  title: "Encontrar Profissionais",
+                  subtitle: "Procure treinadores e nutris",
+                  onTap: () {
+                    Navigator.push(context, MaterialPageRoute(builder: (context) => FindProfessionalsScreen(currentUser: widget.user)));
+                  },
+                );
+              case 7:
+                 return const Card(
+                   color: Colors.transparent,
+                   elevation: 0,
+                 );
               default:
                 return const SizedBox.shrink();
             }
@@ -269,8 +281,7 @@ class _StudentDashboardState extends State<StudentDashboard> {
       ),
     );
   }
-  
-  // NOVO: Função para mostrar o pop-up de registo de peso.
+
   void _showWeightLogDialog() {
     final weightController = TextEditingController();
     showDialog(
@@ -332,7 +343,6 @@ class _StudentDashboardState extends State<StudentDashboard> {
   }
 }
 
-// Widget de cartão genérico (sem alterações)
 class _DashboardGridCard extends StatelessWidget {
   final IconData icon;
   final String title;
@@ -364,7 +374,7 @@ class _DashboardGridCard extends StatelessWidget {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Icon(icon, size: 24, color: onTap != null ? Colors.deepOrange : Colors.grey),
+                  Icon(icon, size: 24, color: onTap != null || child != null ? Colors.deepOrange : Colors.grey),
                   if (onTap != null && child == null)
                     const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey)
                 ],
@@ -399,10 +409,6 @@ class _DashboardGridCard extends StatelessWidget {
   }
 }
 
-
-// REMOVIDO: O widget _DailyLogCard foi substituído pela lógica de pop-up.
-
-// Widget do Código de Convite (sem alterações)
 class _InviteCodeCard extends StatelessWidget {
   final String inviteCode;
 
@@ -413,7 +419,7 @@ class _InviteCodeCard extends StatelessWidget {
     return _DashboardGridCard(
       icon: Icons.qr_code,
       title: 'Código de Convite',
-      onTap: () { // Este onTap não faz nada, mas permite o estilo
+      onTap: () {
         Clipboard.setData(ClipboardData(text: inviteCode));
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Código copiado!')));
       },
